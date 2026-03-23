@@ -77,7 +77,7 @@ const buildSmtpConfig = () => ({
   port: 587,
   securityMode: "STARTTLS" as const,
   username: "alerts@example.com",
-  allowedRecipientDomains: ["example.com"],
+  allowedSenderDomains: ["example.com"],
   isActive: true,
   hasPassword: true,
   lastTestedAt: "2026-03-19T00:00:00.000Z",
@@ -177,5 +177,13 @@ describe("ProjectExperienceWizard", () => {
     await waitFor(() => {
       expect(getStepCard("SMTP 연결 확인")).toHaveFocus();
     });
+  });
+
+  it("발송 설정 열기 버튼을 표시한다", async () => {
+    setupHandlers({ smtpReady: false });
+
+    renderWithClient(<ProjectExperienceWizard />);
+
+    expect(await screen.findByRole("button", { name: "발송 설정 열기" })).toBeInTheDocument();
   });
 });

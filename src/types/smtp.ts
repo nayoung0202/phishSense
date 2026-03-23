@@ -10,7 +10,7 @@ export type SmtpConfigResponse = {
   username?: string | null;
   tlsVerify: boolean;
   rateLimitPerMin: number;
-  allowedRecipientDomains?: string[] | null;
+  allowedSenderDomains?: string[] | null;
   isActive: boolean;
   lastTestedAt?: string | null;
   lastTestStatus?: "success" | "failure" | null;
@@ -27,7 +27,7 @@ export type UpdateSmtpConfigPayload = {
   password?: string;
   tlsVerify?: boolean;
   rateLimitPerMin?: number;
-  allowedRecipientDomains?: string[];
+  allowedSenderDomains?: string[];
   isActive?: boolean;
 };
 
@@ -46,7 +46,7 @@ export type SmtpConfigSummary = {
   port: number;
   securityMode: SecurityMode;
   username?: string | null;
-  allowedRecipientDomains?: string[] | null;
+  allowedSenderDomains?: string[] | null;
   isActive: boolean;
   hasPassword: boolean;
   lastTestedAt?: string | null;

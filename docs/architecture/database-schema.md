@@ -41,7 +41,7 @@
 
 | 테이블 | 역할 | 핵심 필드 |
 | --- | --- | --- |
-| `smtp_accounts` | 테넌트별 다건 SMTP 계정 | `tenant_id`, `host`, `security_mode`, `username`, `password_enc`, `allowed_domains_json`, `is_active` |
+| `smtp_accounts` | 테넌트별 다건 발송 설정 | `tenant_id`, `name`, `host`, `security_mode`, `username`, `password_enc`, `allowed_domains_json`, `is_active` |
 
 ### 예비/레거시
 
@@ -69,12 +69,13 @@
 - `platform_entitlements.status`: 제품 접근 허용 여부 판단의 최종 기준
 - `platform_entitlement_events.event_id`: callback 중복 수신 방지 키
 
-### SMTP
+### 발송 설정
 
-- `smtp_accounts.tenant_id`: SMTP 계정 소유 tenant 식별자
+- `smtp_accounts.tenant_id`: 발송 설정 소유 tenant 식별자
+- `smtp_accounts.name`: 프로젝트 생성 화면과 관리자 목록에 표시하는 발송 설정 별칭
 - `smtp_accounts.username`: SMTP 인증용 계정 아이디
 - `smtp_accounts.password_enc`: AES-256-GCM 기반 암호문
-- `smtp_accounts.allowed_domains_json`: 테스트 발송 및 프로젝트 발신 도메인 선택에 사용하는 도메인 목록
+- `smtp_accounts.allowed_domains_json`: 프로젝트 발신 이메일과 SMTP 테스트 발신 이메일에 적용하는 허용 발신 도메인 목록
 - `smtp_accounts.is_active`: 테넌트의 현재 발송 기준 SMTP 계정 여부
 
 ## 상태값 요약

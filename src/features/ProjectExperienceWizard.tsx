@@ -305,7 +305,7 @@ export default function ProjectExperienceWizard() {
         throw new Error("템플릿과 훈련 안내 페이지를 먼저 저장하세요.");
       }
       if (!activeSmtpConfig) {
-        throw new Error("실제 발송을 위해 SMTP 설정이 필요합니다.");
+        throw new Error("실제 발송을 위해 발송 설정이 필요합니다.");
       }
 
       const trimmedRecipient = currentRecipient.trim();
@@ -401,8 +401,8 @@ export default function ProjectExperienceWizard() {
 
     if (result.error) {
       toast({
-        title: "SMTP 상태 확인 실패",
-        description: parseErrorMessage(result.error, "SMTP 설정 상태를 확인하지 못했습니다."),
+        title: "발송 설정 상태 확인 실패",
+        description: parseErrorMessage(result.error, "발송 설정 상태를 확인하지 못했습니다."),
         variant: "destructive",
       });
       return;
@@ -421,8 +421,8 @@ export default function ProjectExperienceWizard() {
     }
 
     toast({
-      title: "SMTP 설정 미확인",
-      description: "아직 활성화된 SMTP 설정을 찾지 못했습니다. 설정 후 다시 새로고침하세요.",
+      title: "발송 설정 미확인",
+      description: "아직 활성화된 발송 설정을 찾지 못했습니다. 설정 후 다시 새로고침하세요.",
     });
   };
 
@@ -438,7 +438,7 @@ export default function ProjectExperienceWizard() {
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">Ready Tenant</Badge>
             <Badge variant={smtpReady ? "default" : "secondary"}>
-              {smtpReady ? "SMTP 연결 완료" : "SMTP 설정 필요"}
+              {smtpReady ? "발송 설정 준비 완료" : "발송 설정 필요"}
             </Badge>
           </div>
           <h1 className="text-4xl font-bold tracking-tight">첫 피싱 시뮬레이션 체험</h1>
@@ -450,7 +450,7 @@ export default function ProjectExperienceWizard() {
       </div>
 
       <Card className="border-sky-200 bg-sky-50 p-5 text-sm text-sky-900">
-        실제 메일 발송까지 하려면 SMTP 설정이 필요합니다. 다만 템플릿 생성과 훈련 안내
+        실제 메일 발송까지 하려면 발송 설정이 필요합니다. 다만 템플릿 생성과 훈련 안내
         페이지 생성은 먼저 진행할 수 있습니다.
       </Card>
 
@@ -748,7 +748,7 @@ export default function ProjectExperienceWizard() {
           </div>
           <h2 className="text-2xl font-semibold">SMTP 연결 확인</h2>
           <p className="text-sm text-muted-foreground">
-            실제 메일 수신 체험은 활성화된 SMTP 설정이 있어야 진행됩니다. 여기서는
+            실제 메일 수신 체험은 활성화된 발송 설정이 있어야 진행됩니다. 여기서는
             전송 계정 연결 상태만 확인하고, 실제 발신 이메일은 다음 단계에서 입력합니다.
           </p>
         </div>
@@ -781,13 +781,13 @@ export default function ProjectExperienceWizard() {
         ) : (
           <Card className="border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             <div className="space-y-3">
-              <p className="font-semibold">SMTP 설정이 아직 없습니다.</p>
+              <p className="font-semibold">발송 설정이 아직 없습니다.</p>
               <p>
-                새 탭에서 SMTP를 연결한 뒤 이 화면으로 돌아와 상태를 새로고침하세요.
+                새 탭에서 발송 설정을 추가한 뒤 이 화면으로 돌아와 상태를 새로고침하세요.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Link href="/admin/smtp/new" target="_blank" rel="noopener noreferrer">
-                  <Button>SMTP 설정 열기</Button>
+                  <Button>발송 설정 열기</Button>
                 </Link>
                 <Button
                   variant="outline"

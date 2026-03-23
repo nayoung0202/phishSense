@@ -47,7 +47,7 @@ const menuItems: Array<{ title: string; url: Route; icon: typeof LayoutDashboard
     icon: FileBarChart,
   },
   {
-    title: "SMTP 관리",
+    title: "발송 설정",
     url: "/admin/smtp" as Route,
     icon: Mail,
   },

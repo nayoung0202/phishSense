@@ -3,6 +3,7 @@ import {
   collectDepartmentTagsFromTargets,
   normalizeStringArray,
 } from "@/server/services/projectsShared";
+import { validateProjectSenderDomainPolicy } from "@/server/services/projectSmtpPolicy";
 import {
   createProjectTargetForTenant,
   deleteProjectForTenant,
@@ -42,6 +43,10 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   try {
     const { tenantId } = await requireReadyTenant(request);
     const { id } = await params;
+    const existingProject = await getProjectForTenant(tenantId, id);
+    if (!existingProject) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
     const payloadRaw = await request.json();
     const payload: Record<string, unknown> = { ...payloadRaw };
     const targetIdsRaw = Array.isArray(payloadRaw.targetIds)
@@ -87,6 +92,23 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     }
     if (payload.notificationEmails) {
       payload.notificationEmails = normalizeStringArray(payload.notificationEmails);
+    }
+
+    const senderPolicyIssues = await validateProjectSenderDomainPolicy(tenantId, {
+      status:
+        typeof payload.status === "string" ? payload.status : existingProject.status,
+      smtpAccountId:
+        typeof payload.smtpAccountId === "string"
+          ? payload.smtpAccountId
+          : existingProject.smtpAccountId,
+      fromEmail:
+        typeof payload.fromEmail === "string" ? payload.fromEmail : existingProject.fromEmail,
+    });
+    if (senderPolicyIssues.length > 0) {
+      return NextResponse.json(
+        { error: "validation_failed", issues: senderPolicyIssues },
+        { status: 422 },
+      );
     }
 
     let project = await updateProjectForTenant(tenantId, id, payload);

@@ -32,7 +32,8 @@ export type SendValidationIssue = {
     | "smtp_password_missing"
     | "sender_name_missing"
     | "sender_email_missing"
-    | "sender_email_invalid";
+    | "sender_email_invalid"
+    | "sender_domain_not_allowed";
   scope: "project" | "mail" | "malicious";
   message: string;
   tokens?: string[];

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { z, ZodError } from "zod";
+import { validateSenderEmailAgainstAllowedDomains } from "@/lib/smtpValidation";
+import { getSmtpConfigByIdForTenant } from "@/server/dao/smtpDao";
 import {
   buildLandingUrl,
   buildOpenPixelUrl,
@@ -29,6 +31,7 @@ const payloadSchema = z
   .object({
     projectId: z.string().trim().min(1).nullish(),
     templateId: z.string().trim().min(1, "템플릿을 선택하세요.").nullish(),
+    smtpAccountId: z.string().trim().min(1).nullish(),
     fromEmail: z.string().email("올바른 발신 이메일 주소를 입력하세요."),
     fromName: z.string().min(1, "발신자 이름을 입력하세요."),
     recipient: z.string().email("유효한 수신 이메일을 입력하세요."),
@@ -99,6 +102,30 @@ export async function POST(request: NextRequest) {
       (typeof project?.fromEmail === "string" && project.fromEmail.trim()) || payload.fromEmail;
     const fromName =
       (typeof project?.fromName === "string" && project.fromName.trim()) || payload.fromName;
+    const smtpAccountId =
+      (typeof project?.smtpAccountId === "string" && project.smtpAccountId.trim()) ||
+      payload.smtpAccountId?.trim() ||
+      null;
+
+    if (smtpAccountId) {
+      const smtpConfig = await getSmtpConfigByIdForTenant(tenantId, smtpAccountId);
+      if (smtpConfig) {
+        try {
+          validateSenderEmailAgainstAllowedDomains(fromEmail, smtpConfig.allowedSenderDomains);
+        } catch (error) {
+          return NextResponse.json(
+            {
+              error: "sender_domain_not_allowed",
+              reason:
+                error instanceof Error
+                  ? error.message
+                  : "발신 이메일 도메인이 허용 발신 도메인과 일치하지 않습니다.",
+            },
+            { status: 422, headers },
+          );
+        }
+      }
+    }
 
     const smtpPort = Number(process.env.SMTP_PORT ?? 587);
     const smtpSecure = String(process.env.SMTP_SECURE ?? "").toLowerCase() === "true";

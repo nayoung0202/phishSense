@@ -45,7 +45,7 @@
 
 | 리소스 | 주요 경로 |
 | --- | --- |
-| SMTP 설정 | `/api/admin/smtp-configs`, `/api/admin/smtp-configs/[smtpAccountId]`, `/api/admin/smtp-configs/[smtpAccountId]/test`, `/api/admin/tenants/[tenantId]/smtp-config`, `/api/admin/tenants/[tenantId]/smtp-config/test` |
+| 발송 설정 | `/api/admin/smtp-configs`, `/api/admin/smtp-configs/[smtpAccountId]`, `/api/admin/smtp-configs/[smtpAccountId]/test`, `/api/admin/tenants/[tenantId]/smtp-config`, `/api/admin/tenants/[tenantId]/smtp-config/test` |
 | 대상자 일괄 업로드 | `/api/admin/training-targets/import`, `/api/admin/training-targets/template.xlsx` |
 
 - `POST /api/targets`와 `POST /api/admin/training-targets/import`는 tenant의 활성 entitlement `seatLimit`을 초과하는 대상자 추가를 허용하지 않습니다.

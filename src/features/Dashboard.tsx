@@ -521,7 +521,7 @@ export default function Dashboard() {
                     variant="outline"
                     className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100"
                   >
-                    SMTP 먼저 설정
+                    발송 설정 열기
                   </Button>
                 </Link>
               </div>

@@ -335,7 +335,7 @@ export const validateProjectPayload = (
     issues.push({
       field: "smtpAccountId",
       code: "required",
-      message: "SMTP 계정을 선택하세요.",
+      message: "발송 설정을 선택하세요.",
     });
   }
 
@@ -394,4 +394,3 @@ export const validateProjectPayload = (
 
   return issues;
 };
-

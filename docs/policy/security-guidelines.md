@@ -27,7 +27,8 @@
 
 ## 5. 외부 입력과 네트워크 제한
 
-- 테스트 메일 도메인은 허용 목록(`SMTP_TEST_ALLOWED_DOMAINS`) 안에서만 사용합니다.
+- 발송 설정의 `allowed_domains_json`은 프로젝트 발신 이메일과 SMTP 테스트 발신 이메일의 허용 발신 도메인 정책으로 사용하며, 등록 도메인의 하위 도메인도 함께 허용합니다.
+- 테스트 수신 이메일 도메인은 운영 허용 목록(`SMTP_TEST_ALLOWED_DOMAINS`) 안에서만 사용합니다.
 - SSRF 방어 설정(`SSRF_BLOCK_METADATA`)을 유지합니다.
 - 외부 URL을 다루는 로직은 안전한 URL 검사 유틸리티를 거칩니다.
 

@@ -8,6 +8,7 @@ import {
   statusParamMap,
   validateProjectPayload,
 } from "@/server/services/projectsShared";
+import { validateProjectSenderDomainPolicy } from "@/server/services/projectSmtpPolicy";
 import { enqueueSendJobForProject } from "@/server/services/sendJobs";
 import { validateTemplateForSend } from "@/server/services/templateSendValidation";
 import {
@@ -134,6 +135,8 @@ export async function POST(request: NextRequest) {
     const issues = validateProjectPayload(sanitized, {
       allowTemporaryDraft: true,
     });
+    const senderPolicyIssues = await validateProjectSenderDomainPolicy(tenantId, sanitized);
+    issues.push(...senderPolicyIssues);
     if (issues.length > 0) {
       return NextResponse.json({ error: "validation_failed", issues }, { status: 422 });
     }

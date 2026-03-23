@@ -9,7 +9,7 @@ export default function SmtpEditPage({ smtpAccountId }: { smtpAccountId: string 
   if (!smtpAccountId) {
     return (
       <div className="px-4 py-6 lg:px-8">
-        <p className="text-sm text-destructive">SMTP 계정 ID가 제공되지 않았습니다.</p>
+        <p className="text-sm text-destructive">발송 설정 ID가 제공되지 않았습니다.</p>
       </div>
     );
   }
@@ -18,8 +18,8 @@ export default function SmtpEditPage({ smtpAccountId }: { smtpAccountId: string 
     <SmtpConfigDetail
       smtpAccountId={smtpAccountId}
       mode="edit"
-      title="SMTP 설정 수정"
-      description=""
+      title="발송 설정 수정"
+      description="설정 별칭, SMTP 연결 정보와 허용 발신 도메인을 수정합니다."
       onBack={() => router.push("/admin/smtp")}
     />
   );

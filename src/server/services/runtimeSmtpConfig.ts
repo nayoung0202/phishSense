@@ -1,5 +1,6 @@
 import process from "node:process";
 import type { Project } from "@shared/schema";
+import { validateSenderEmailAgainstAllowedDomains } from "@/lib/smtpValidation";
 import type { PersistedSmtpConfig } from "../dao/smtpDao";
 import { normalizeSmtpError } from "../lib/smtpError";
 import { findMissingSmtpKey, normalizeOptionalString } from "./projectsShared";
@@ -10,7 +11,8 @@ export type RuntimeSendConfigIssueCode =
   | "smtp_password_missing"
   | "sender_name_missing"
   | "sender_email_missing"
-  | "sender_email_invalid";
+  | "sender_email_invalid"
+  | "sender_domain_not_allowed";
 
 export type RuntimeSendConfigIssue = {
   code: RuntimeSendConfigIssueCode;
@@ -78,7 +80,7 @@ export const collectRuntimeSendConfigIssues = (
     if (!smtpConfig.isActive) {
       issues.push({
         code: "smtp_inactive",
-        message: "테넌트 SMTP 설정이 비활성화되어 프로젝트 메일을 발송할 수 없습니다.",
+        message: "테넌트 발송 설정이 비활성화되어 프로젝트 메일을 발송할 수 없습니다.",
       });
     }
 
@@ -121,6 +123,21 @@ export const collectRuntimeSendConfigIssues = (
       code: "sender_email_invalid",
       message: "프로젝트 발신 이메일 또는 MAIL_FROM_EMAIL 환경 변수 형식이 올바르지 않습니다.",
     });
+  } else if (smtpConfig) {
+    try {
+      validateSenderEmailAgainstAllowedDomains(
+        fromEmail,
+        smtpConfig.allowedSenderDomains,
+      );
+    } catch (error) {
+      issues.push({
+        code: "sender_domain_not_allowed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "프로젝트 발신 이메일 도메인이 허용 발신 도메인과 일치하지 않습니다.",
+      });
+    }
   }
 
   return issues;
@@ -163,7 +180,7 @@ export const formatRuntimeSendError = (
 
   if (normalized.category === "sender_rejected") {
     const sender = options?.senderEmail ? ` (${options.senderEmail})` : "";
-    const source = options?.transportSource === "tenant" ? "테넌트 SMTP 설정" : "환경 변수 SMTP 설정";
+    const source = options?.transportSource === "tenant" ? "테넌트 발송 설정" : "환경 변수 SMTP 설정";
     return `${source}으로 발신 주소${sender} 사용이 거부되었습니다. 프로젝트 발신 이메일과 SMTP 계정의 send-as/alias 권한을 확인하세요. 원본 응답: ${normalized.rawMessage}`;
   }
 

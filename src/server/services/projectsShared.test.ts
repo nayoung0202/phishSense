@@ -202,7 +202,7 @@ describe("validateProjectPayload", () => {
     expect(messages).toContain("프로젝트명을 입력하세요.");
     expect(messages).toContain("템플릿을 선택하세요.");
     expect(messages).toContain("훈련 안내 페이지를 선택하세요.");
-    expect(messages).toContain("SMTP 계정을 선택하세요.");
+    expect(messages).toContain("발송 설정을 선택하세요.");
     expect(messages).toContain("발신자 이름을 입력하세요.");
     expect(messages).toContain("올바른 이메일 형식이 아닙니다.");
     expect(messages).toContain("시작일을 입력하세요.");

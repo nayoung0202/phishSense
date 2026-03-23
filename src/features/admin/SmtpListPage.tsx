@@ -61,7 +61,7 @@ export default function SmtpListPage() {
     },
     onSuccess: (smtpAccountId) => {
       toast({
-        title: "SMTP 설정을 삭제했습니다.",
+        title: "발송 설정을 삭제했습니다.",
       });
       void queryClient.invalidateQueries({ queryKey: ["smtp-configs"] });
       void queryClient.invalidateQueries({ queryKey: ["smtp-config", smtpAccountId] });
@@ -84,28 +84,30 @@ export default function SmtpListPage() {
     <div className="space-y-6 px-4 py-6 lg:px-8">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">SMTP 설정 목록</h1>
+          <h1 className="text-2xl font-bold tracking-tight">발송 설정</h1>
+          <p className="text-sm text-muted-foreground">설정 별칭, SMTP 계정, 허용 발신 도메인을 관리합니다.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => router.push("/admin/smtp/new")}>SMTP 등록</Button>
+          <Button onClick={() => router.push("/admin/smtp/new")}>발송 설정 추가</Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>SMTP 설정</CardTitle>
+          <CardTitle>발송 설정 목록</CardTitle>
         </CardHeader>
         <CardContent>
           {sortedItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">등록된 SMTP 설정이 없습니다. 새로운 설정을 등록해 주세요.</p>
+            <p className="text-sm text-muted-foreground">등록된 발송 설정이 없습니다. 새 설정을 추가해 주세요.</p>
           ) : (
             <div className="w-full overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>설정 별칭</TableHead>
                     <TableHead>계정 아이디</TableHead>
                     <TableHead>호스트</TableHead>
-                    <TableHead>도메인</TableHead>
+                    <TableHead>허용 발신 도메인</TableHead>
                     <TableHead>포트</TableHead>
                     <TableHead>보안 모드</TableHead>
                     <TableHead>상태</TableHead>
@@ -117,9 +119,10 @@ export default function SmtpListPage() {
                 <TableBody>
                   {sortedItems.map((item) => (
                     <TableRow key={item.id}>
+                      <TableCell>{item.name || "-"}</TableCell>
                       <TableCell>{item.username || "-"}</TableCell>
                       <TableCell>{item.host || "-"}</TableCell>
-                      <TableCell>{formatDomains(item.allowedRecipientDomains)}</TableCell>
+                      <TableCell>{formatDomains(item.allowedSenderDomains)}</TableCell>
                       <TableCell>{item.port}</TableCell>
                       <TableCell>{item.securityMode}</TableCell>
                       <TableCell>

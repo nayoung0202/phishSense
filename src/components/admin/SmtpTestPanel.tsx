@@ -15,7 +15,7 @@ type Props = {
   onSubmit: (payload: TestSmtpConfigPayload) => Promise<void> | void;
   isTesting?: boolean;
   disabled?: boolean;
-  allowedDomains?: string[] | null;
+  allowedSenderDomains?: string[] | null;
   lastTestedAt?: SmtpConfigResponse["lastTestedAt"];
   lastTestStatus?: SmtpConfigResponse["lastTestStatus"];
   lastTestError?: SmtpConfigResponse["lastTestError"];
@@ -28,7 +28,7 @@ export function SmtpTestPanel({
   onSubmit,
   isTesting,
   disabled,
-  allowedDomains,
+  allowedSenderDomains,
   lastTestedAt,
   lastTestStatus,
   lastTestError,
@@ -49,10 +49,12 @@ export function SmtpTestPanel({
   const hasCustomMessage = subjectValue.length > 0 || bodyValue.length > 0;
   const isMessageValid = !hasCustomMessage || (subjectValue.length > 0 && bodyValue.length > 0);
 
-  const domainHint = useMemo(() => {
-    if (!allowedDomains || allowedDomains.length === 0) return "허용된 도메인 제한 없음";
-    return `허용 도메인: ${allowedDomains.join(", ")}`;
-  }, [allowedDomains]);
+  const senderDomainHint = useMemo(() => {
+    if (!allowedSenderDomains || allowedSenderDomains.length === 0) {
+      return "허용 발신 도메인 제한 없음";
+    }
+    return `허용 발신 도메인(하위 도메인 포함): ${allowedSenderDomains.join(", ")}`;
+  }, [allowedSenderDomains]);
 
   const badge = useMemo(() => {
     if (lastTestStatus === "success") {
@@ -128,6 +130,7 @@ export function SmtpTestPanel({
               placeholder="sender@example.com"
               disabled={disabled}
             />
+            <p className="text-xs text-muted-foreground">{senderDomainHint}</p>
             {!isSenderValid && sender && <p className="text-sm text-destructive">올바른 발신 이메일을 입력하세요.</p>}
           </div>
           <div className="space-y-2">
@@ -141,7 +144,7 @@ export function SmtpTestPanel({
               disabled={disabled}
             />
             <p className="text-xs text-muted-foreground">
-              허용된 도메인만 사용할 수 있습니다. (예: user@example.com) / {domainHint}
+              실제로 수신 가능한 이메일 주소를 입력하세요. (예: user@example.com)
             </p>
             {!isRecipientValid && recipient && <p className="text-sm text-destructive">올바른 수신 이메일을 입력하세요.</p>}
             {disabledReason && (

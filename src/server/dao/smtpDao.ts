@@ -17,7 +17,7 @@ export type PersistedSmtpConfig = {
   password: string | null;
   tlsVerify: boolean;
   rateLimitPerMin: number;
-  allowedRecipientDomains: string[];
+  allowedSenderDomains: string[];
   isActive: boolean;
   lastTestedAt: string | null;
   lastTestStatus: "success" | "failure" | null;
@@ -36,7 +36,7 @@ type PersistPayload = {
   password?: string | null;
   tlsVerify: boolean;
   rateLimitPerMin: number;
-  allowedRecipientDomains?: string[];
+  allowedSenderDomains?: string[];
   isActive: boolean;
 };
 
@@ -92,7 +92,7 @@ const resolveConfigName = (payload: {
   normalizeOptionalString(payload.username) ??
   normalizeOptionalString(payload.host) ??
   normalizeOptionalString(payload.fallbackName) ??
-  "SMTP 설정";
+  "발송 설정";
 
 const mapRow = (row: SmtpAccountRow): PersistedSmtpConfig => ({
   id: row.id,
@@ -105,7 +105,7 @@ const mapRow = (row: SmtpAccountRow): PersistedSmtpConfig => ({
   password: row.passwordEnc ? decryptSecret(row.passwordEnc) : null,
   tlsVerify: row.tlsVerify ?? true,
   rateLimitPerMin: row.rateLimitPerMin ?? 60,
-  allowedRecipientDomains: parseAllowedDomains(row.allowedDomainsJson),
+  allowedSenderDomains: parseAllowedDomains(row.allowedDomainsJson),
   isActive: row.isActive ?? true,
   lastTestedAt: toIsoString(row.lastTestedAt),
   lastTestStatus: normalizeStatus(row.lastTestStatus),
@@ -190,7 +190,7 @@ export async function createSmtpConfig(payload: CreatePersistPayload): Promise<P
     passwordEnc: encryptedPassword,
     tlsVerify: payload.tlsVerify,
     rateLimitPerMin: payload.rateLimitPerMin,
-    allowedDomainsJson: stringifyAllowedDomains(payload.allowedRecipientDomains),
+    allowedDomainsJson: stringifyAllowedDomains(payload.allowedSenderDomains),
     isActive: payload.isActive,
     createdAt: now,
     updatedAt: now,
@@ -198,7 +198,7 @@ export async function createSmtpConfig(payload: CreatePersistPayload): Promise<P
 
   const config = await getSmtpConfigByIdForTenant(payload.tenantId, id);
   if (!config) {
-    throw new Error("SMTP 설정을 저장하지 못했습니다.");
+    throw new Error("발송 설정을 저장하지 못했습니다.");
   }
   return config;
 }
@@ -210,7 +210,7 @@ export async function updateSmtpConfigForTenant(
 ): Promise<PersistedSmtpConfig> {
   const existing = await getSmtpRowByIdForTenant(tenantId, smtpAccountId);
   if (!existing) {
-    throw new Error("SMTP 설정을 찾지 못했습니다.");
+    throw new Error("발송 설정을 찾지 못했습니다.");
   }
 
   const now = new Date();
@@ -241,8 +241,8 @@ export async function updateSmtpConfigForTenant(
       tlsVerify: payload.tlsVerify,
       rateLimitPerMin: payload.rateLimitPerMin,
       allowedDomainsJson:
-        payload.allowedRecipientDomains !== undefined
-          ? stringifyAllowedDomains(payload.allowedRecipientDomains)
+        payload.allowedSenderDomains !== undefined
+          ? stringifyAllowedDomains(payload.allowedSenderDomains)
           : existing.allowedDomainsJson ?? "[]",
       isActive: payload.isActive,
       updatedAt: now,
@@ -256,7 +256,7 @@ export async function updateSmtpConfigForTenant(
 
   const config = await getSmtpConfigByIdForTenant(tenantId, smtpAccountId);
   if (!config) {
-    throw new Error("SMTP 설정을 저장하지 못했습니다.");
+    throw new Error("발송 설정을 저장하지 못했습니다.");
   }
   return config;
 }

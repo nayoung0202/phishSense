@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     if (error instanceof AdminSmtpError) {
       return NextResponse.json(error.body, { status: error.status });
     }
-    return buildReadyTenantErrorResponse(error, "SMTP 설정을 불러오지 못했습니다.");
+    return buildReadyTenantErrorResponse(error, "발송 설정을 불러오지 못했습니다.");
   }
 }
 
@@ -41,7 +41,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     if (error instanceof AdminSmtpError) {
       return NextResponse.json(error.body, { status: error.status });
     }
-    return buildReadyTenantErrorResponse(error, "SMTP 설정을 저장하지 못했습니다.");
+    return buildReadyTenantErrorResponse(error, "발송 설정을 저장하지 못했습니다.");
   }
 }
 
@@ -55,6 +55,6 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     if (error instanceof AdminSmtpError) {
       return NextResponse.json(error.body, { status: error.status });
     }
-    return buildReadyTenantErrorResponse(error, "SMTP 설정을 삭제하지 못했습니다.");
+    return buildReadyTenantErrorResponse(error, "발송 설정을 삭제하지 못했습니다.");
   }
 }

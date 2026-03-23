@@ -22,7 +22,7 @@ const tenantSmtpConfig: PersistedSmtpConfig = {
   password: "secret",
   tlsVerify: true,
   rateLimitPerMin: 60,
-  allowedRecipientDomains: ["example.com"],
+  allowedSenderDomains: ["example.com"],
   isActive: true,
   lastTestedAt: null,
   lastTestStatus: null,
@@ -91,6 +91,34 @@ describe("runtimeSmtpConfig", () => {
 
     expect(issues).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: "smtp_inactive" })]),
+    );
+  });
+
+  it("허용 발신 도메인과 다른 프로젝트 발신 이메일은 검증 단계에서 차단한다", () => {
+    const issues = collectRuntimeSendConfigIssues(
+      {
+        fromName: "프로젝트 발신자",
+        fromEmail: "project@other.example",
+      },
+      tenantSmtpConfig,
+    );
+
+    expect(issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "sender_domain_not_allowed" })]),
+    );
+  });
+
+  it("허용 발신 도메인의 하위 도메인 발신 이메일은 허용한다", () => {
+    const issues = collectRuntimeSendConfigIssues(
+      {
+        fromName: "프로젝트 발신자",
+        fromEmail: "project@auth.example.com",
+      },
+      tenantSmtpConfig,
+    );
+
+    expect(issues).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "sender_domain_not_allowed" })]),
     );
   });
 

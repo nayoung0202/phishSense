@@ -46,9 +46,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { type Project, type ProjectTarget, type Target, type Template, type TrainingPage } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { validateSenderEmailAgainstAllowedDomains } from "@/lib/smtpValidation";
 import { cn } from "@/lib/utils";
 import { listSmtpConfigs } from "@/lib/api";
-import type { SmtpConfigSummary } from "@/types/smtp";
+import type { SecurityMode, SmtpConfigSummary } from "@/types/smtp";
 import {
   applyTimeToDate,
   formatTimeInputValue,
@@ -91,11 +92,22 @@ type PreviewResponse = {
   cacheKey: string;
 };
 
+const SIMPLE_EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 type TargetTreeNode = {
   id: string;
   label: string;
   targetIds: string[];
   children?: TargetTreeNode[];
+};
+
+type SmtpAccountOption = {
+  value: string;
+  label: string;
+  host: string;
+  username?: string | null;
+  securityMode: SecurityMode;
+  allowedSenderDomains: string[];
 };
 
 const buildNodeId = (prefix: string, value: string) =>
@@ -136,7 +148,7 @@ const projectFormSchema = z
     description: z.string().optional(),
     templateId: z.string().min(1, "템플릿을 선택하세요."),
     trainingPageId: z.string().min(1, "랜딩 페이지를 선택하세요."),
-    smtpAccountId: z.string().min(1, "SMTP 계정을 선택하세요."),
+    smtpAccountId: z.string().min(1, "발송 설정을 선택하세요."),
     fromName: z.string().min(1, "발신자 이름을 입력하세요."),
     fromEmail: z.string().email("올바른 이메일 주소를 입력하세요."),
     startDate: z.date({
@@ -304,6 +316,7 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
   const [startDatePopoverOpen, setStartDatePopoverOpen] = useState(false);
   const [endDatePopoverOpen, setEndDatePopoverOpen] = useState(false);
   const [tempProjectId, setTempProjectId] = useState<string | null>(null);
+  const [showValidationFeedback, setShowValidationFeedback] = useState(false);
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
@@ -439,13 +452,16 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
 
   const allTargetIds = useMemo(() => targets.map((target) => target.id), [targets]);
 
-  const smtpAccountOptions = useMemo(() => {
+  const smtpAccountOptions = useMemo<SmtpAccountOption[]>(() => {
     return (smtpConfigs ?? [])
       .filter((config) => config.isActive)
       .map((config) => ({
         value: config.id,
-        label: config.name ?? config.host,
+        label: config.name?.trim() || config.host,
+        host: config.host,
+        username: config.username ?? null,
         securityMode: config.securityMode,
+        allowedSenderDomains: config.allowedSenderDomains ?? [],
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [smtpConfigs]);
@@ -454,6 +470,45 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
     () => smtpAccountOptions.find((option) => option.value === smtpAccountId) ?? null,
     [smtpAccountOptions, smtpAccountId],
   );
+  const senderDomainPolicyError = useMemo(() => {
+    const normalizedFromEmail = fromEmailValue.trim();
+    if (!selectedSmtpOption || !normalizedFromEmail || !SIMPLE_EMAIL_REGEX.test(normalizedFromEmail)) {
+      return null;
+    }
+
+    try {
+      validateSenderEmailAgainstAllowedDomains(
+        normalizedFromEmail,
+        selectedSmtpOption.allowedSenderDomains,
+      );
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : "발신 이메일 도메인을 확인하세요.";
+    }
+  }, [fromEmailValue, selectedSmtpOption]);
+  const senderEmailSuggestions = useMemo(() => {
+    const allowedDomains = selectedSmtpOption?.allowedSenderDomains ?? [];
+    const normalizedInput = fromEmailValue.trim().toLowerCase();
+
+    if (allowedDomains.length === 0 || normalizedInput.length === 0) {
+      return [];
+    }
+
+    const atIndex = normalizedInput.indexOf("@");
+    const localPart =
+      atIndex >= 0 ? normalizedInput.slice(0, atIndex).trim() : normalizedInput;
+    const partialDomain = atIndex >= 0 ? normalizedInput.slice(atIndex + 1).trim() : "";
+
+    if (!localPart) {
+      return [];
+    }
+
+    return allowedDomains
+      .filter((domain) => (partialDomain ? domain.startsWith(partialDomain) : true))
+      .map((domain) => `${localPart}@${domain}`)
+      .filter((suggestion) => suggestion !== normalizedInput)
+      .slice(0, 5);
+  }, [fromEmailValue, selectedSmtpOption]);
 
   const targetLookup = useMemo(() => {
     const map = new Map<string, Target>();
@@ -1087,6 +1142,7 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
       const values = form.getValues();
       if (mode === "create") {
         if (!values.name.trim()) {
+          setShowValidationFeedback(true);
           form.setError("name", {
             type: "manual",
             message: "프로젝트명을 입력하세요.",
@@ -1101,6 +1157,7 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
         form.clearErrors("name");
       }
 
+      setShowValidationFeedback(true);
       const withValidation = mode === "create" ? true : await form.trigger();
       if (!withValidation) {
         toast({
@@ -1113,6 +1170,17 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
         });
         return;
       }
+
+      if (mode !== "create" && senderDomainPolicyError) {
+        toast({
+          title: "입력값을 확인하세요",
+          description: senderDomainPolicyError,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setShowValidationFeedback(false);
 
       if (mode === "schedule") {
         const startDate = values.startDate;
@@ -1136,10 +1204,21 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
 
       createMutation.mutate({ payload });
     },
-    [form, buildProjectPayload, createMutation, updateMutation, tempProjectId, toast],
+    [
+      form,
+      buildProjectPayload,
+      createMutation,
+      senderDomainPolicyError,
+      setShowValidationFeedback,
+      updateMutation,
+      tempProjectId,
+      toast,
+    ],
   );
 
   const ensureTempProject = useCallback(async () => {
+    setShowValidationFeedback(true);
+
     const requiredFields: (keyof ProjectFormValues)[] = [
       "name",
       "templateId",
@@ -1159,6 +1238,17 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
       });
       return null;
     }
+
+    if (senderDomainPolicyError) {
+      toast({
+        title: "입력값을 확인하세요",
+        description: senderDomainPolicyError,
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    setShowValidationFeedback(false);
 
     const values = form.getValues();
     const payload = buildProjectPayload(values, "임시");
@@ -1225,7 +1315,7 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
       description: "테스트 발송을 위한 프로젝트가 저장되었습니다.",
     });
     return createdId;
-  }, [form, buildProjectPayload, tempProjectId, queryClient, toast]);
+  }, [form, buildProjectPayload, tempProjectId, queryClient, senderDomainPolicyError, setShowValidationFeedback, toast]);
 
   const handleTestSend = useCallback(async () => {
     const recipient = testRecipient.trim();
@@ -1297,11 +1387,11 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
             </Button>
           </div>
         </div>
-        {formErrors.length > 0 ? (
+        {showValidationFeedback && formErrors.length > 0 ? (
           <div className="border-t border-destructive/30 bg-destructive/10 px-6 py-2 text-sm text-destructive">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
-              <span>확인 필요: {formErrors.join(", ")}</span>
+              <span>입력 항목을 확인한 뒤 다시 시도하세요.</span>
             </div>
           </div>
         ) : null}
@@ -1605,9 +1695,9 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
                     name="smtpAccountId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>
-                          SMTP 계정<span className="ml-1 text-destructive">*</span>
-                        </FormLabel>
+                          <FormLabel>
+                            발송 설정<span className="ml-1 text-destructive">*</span>
+                          </FormLabel>
                         <FormControl>
                           <Popover
                             open={domainPopoverOpen}
@@ -1621,8 +1711,17 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
                                 className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
                               >
                                 {field.value ? (
-                                  <span className="flex items-center gap-2">
-                                    <span>{selectedSmtpOption?.label ?? field.value}</span>
+                                  <span className="flex min-w-0 items-center gap-2">
+                                    <span className="min-w-0 flex-1 text-left">
+                                      <span className="block truncate">
+                                        {selectedSmtpOption?.label ?? field.value}
+                                      </span>
+                                      {selectedSmtpOption ? (
+                                        <span className="block truncate text-xs text-muted-foreground">
+                                          {selectedSmtpOption.username || selectedSmtpOption.host}
+                                        </span>
+                                      ) : null}
+                                    </span>
                                     {selectedSmtpOption ? (
                                       <Badge variant="outline" className="text-xs">
                                         {selectedSmtpOption.securityMode}
@@ -1630,33 +1729,38 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
                                     ) : null}
                                   </span>
                                 ) : (
-                                  "SMTP 계정을 선택하세요"
+                                  "발송 설정을 선택하세요"
                                 )}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-[320px] p-0">
                               <Command>
-                                <CommandInput placeholder="SMTP 계정 검색" />
+                                <CommandInput placeholder="발송 설정 검색" />
                                 <CommandEmpty>
                                   {hasSmtpAccounts
                                     ? "검색 결과가 없습니다."
-                                    : "등록된 SMTP 계정이 없습니다."}
+                                    : "등록된 발송 설정이 없습니다."}
                                 </CommandEmpty>
                                 <CommandList>
                                   <CommandGroup>
                                     {smtpAccountOptions.map((option) => (
                                       <CommandItem
                                         key={option.value}
-                                        value={option.label}
+                                        value={`${option.label} ${option.host} ${option.username ?? ""}`}
                                         onSelect={() => {
                                           field.onChange(option.value);
                                           setDomainPopoverOpen(false);
                                         }}
                                         className="flex items-center justify-between gap-2"
                                       >
+                                        <div className="min-w-0 flex-1">
+                                          <p className="truncate">{option.label}</p>
+                                          <p className="truncate text-xs text-muted-foreground">
+                                            {option.username || option.host}
+                                          </p>
+                                        </div>
                                         <div className="flex items-center gap-2">
-                                          <span>{option.label}</span>
                                           <Badge variant="outline" className="text-xs">
                                             {option.securityMode}
                                           </Badge>
@@ -1669,6 +1773,21 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
                             </PopoverContent>
                           </Popover>
                         </FormControl>
+                        {selectedSmtpOption ? (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {selectedSmtpOption.allowedSenderDomains.length > 0 ? (
+                              selectedSmtpOption.allowedSenderDomains.map((domain) => (
+                                <Badge key={domain} variant="secondary" className="text-xs">
+                                  {domain}
+                                </Badge>
+                              ))
+                            ) : (
+                              <p className="text-xs text-muted-foreground">
+                                선택한 발송 설정에 허용 발신 도메인 제한이 없습니다.
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1692,15 +1811,39 @@ export default function ProjectCreate({ mode = "create", projectId }: ProjectCre
                     <FormField
                       control={form.control}
                       name="fromEmail"
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <FormItem>
                           <FormLabel>
                             발신 이메일<span className="ml-1 text-destructive">*</span>
                           </FormLabel>
                           <FormControl>
-                            <Input placeholder="예: security@phishsense.dev" {...field} />
+                            <Input
+                              placeholder="예: security@phishsense.dev"
+                              list={
+                                senderEmailSuggestions.length > 0
+                                  ? "allowed-sender-domain-suggestions"
+                                  : undefined
+                              }
+                              {...field}
+                            />
                           </FormControl>
-                          <FormMessage />
+                          {senderEmailSuggestions.length > 0 ? (
+                            <datalist id="allowed-sender-domain-suggestions">
+                              {senderEmailSuggestions.map((suggestion) => (
+                                <option key={suggestion} value={suggestion} />
+                              ))}
+                            </datalist>
+                          ) : null}
+                          {fieldState.error && (fieldState.isTouched || showValidationFeedback) ? (
+                            <p className="text-sm font-medium text-destructive">
+                              {fieldState.error.message}
+                            </p>
+                          ) : null}
+                          {selectedSmtpOption?.allowedSenderDomains.length ? (
+                            <p className="text-xs text-muted-foreground">
+                              @ 이후에는 허용 발신 도메인이 자동완성됩니다.
+                            </p>
+                          ) : null}
                         </FormItem>
                       )}
                     />

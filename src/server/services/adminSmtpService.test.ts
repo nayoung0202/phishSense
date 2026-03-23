@@ -41,7 +41,7 @@ const buildConfig = (overrides: Record<string, unknown> = {}) => ({
   password: "secret",
   tlsVerify: true,
   rateLimitPerMin: 60,
-  allowedRecipientDomains: ["tenant-a.example"],
+  allowedSenderDomains: ["tenant-a.example"],
   isActive: true,
   lastTestedAt: null,
   lastTestStatus: null,
@@ -80,7 +80,7 @@ describe("adminSmtpService", () => {
       securityMode: "STARTTLS",
       username: "alerts@tenant-a.example",
       password: "secret",
-      allowedRecipientDomains: ["tenant-a.example"],
+      allowedSenderDomains: ["tenant-a.example"],
       isActive: true,
     });
 
@@ -124,6 +124,67 @@ describe("adminSmtpService", () => {
         success: true,
       }),
     );
+  });
+
+  it("허용 발신 도메인과 다른 테스트 발신 이메일은 차단한다", async () => {
+    const config = buildConfig({ id: "smtp-selected" });
+    smtpDaoMock.getSmtpConfigByIdForTenant.mockResolvedValue(config);
+
+    await expect(
+      testTenantSmtpConfigById(TENANT_A_ID, "smtp-selected", {
+        testSenderEmail: "sender@other.example",
+        testRecipientEmail: "recipient@tenant-a.example",
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      body: {
+        message:
+          "테스트 발신 이메일 도메인은 허용 발신 도메인 또는 그 하위 도메인과 일치해야 합니다. (tenant-a.example)",
+      },
+    });
+  });
+
+  it("허용 발신 도메인의 하위 도메인 테스트 발신 이메일은 허용한다", async () => {
+    const config = buildConfig({ id: "smtp-selected" });
+    smtpDaoMock.getSmtpConfigByIdForTenant.mockResolvedValue(config);
+    smtpLibMock.sendTestEmail.mockResolvedValue(undefined);
+
+    await testTenantSmtpConfigById(TENANT_A_ID, "smtp-selected", {
+      testSenderEmail: "sender@auth.tenant-a.example",
+      testRecipientEmail: "recipient@tenant-a.example",
+    });
+
+    expect(smtpLibMock.sendTestEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        senderEmail: "sender@auth.tenant-a.example",
+      }),
+    );
+  });
+
+  it("허용 발신 도메인은 최대 5개까지만 저장한다", async () => {
+    await expect(
+      createTenantSmtpConfig(TENANT_A_ID, {
+        host: "smtp.tenant-a.example",
+        port: 587,
+        securityMode: "STARTTLS",
+        username: "alerts@tenant-a.example",
+        password: "secret",
+        allowedSenderDomains: [
+          "one.example",
+          "two.example",
+          "three.example",
+          "four.example",
+          "five.example",
+          "six.example",
+        ],
+        isActive: true,
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      body: {
+        message: "허용 발신 도메인은 최대 5개까지 등록할 수 있습니다.",
+      },
+    });
   });
 
   it("SMTP 5xx 응답은 영구 오류로 정규화해 400으로 반환한다", async () => {

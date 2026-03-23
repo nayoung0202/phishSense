@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const summaries = await fetchTenantSmtpConfigSummaries(tenantId);
     return NextResponse.json(summaries);
   } catch (error) {
-    return buildReadyTenantErrorResponse(error, "SMTP 설정 목록을 불러오지 못했습니다.");
+    return buildReadyTenantErrorResponse(error, "발송 설정 목록을 불러오지 못했습니다.");
   }
 }
 
@@ -29,6 +29,6 @@ export async function POST(request: NextRequest) {
     if (error instanceof AdminSmtpError) {
       return NextResponse.json(error.body, { status: error.status });
     }
-    return buildReadyTenantErrorResponse(error, "SMTP 설정을 저장하지 못했습니다.");
+    return buildReadyTenantErrorResponse(error, "발송 설정을 저장하지 못했습니다.");
   }
 }

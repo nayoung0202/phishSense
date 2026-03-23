@@ -1,51 +1,22 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import ipaddr from "ipaddr.js";
+import {
+  validateSmtpConnectionInput,
+  type NormalizedSmtpConnectionInput,
+  type SmtpConnectionValidationInput,
+} from "@/lib/smtpValidation";
+import type { SecurityMode } from "@/types/smtp";
 
-export type SecurityMode = "SMTPS" | "STARTTLS" | "NONE";
-
-const DOMAIN_REGEX = /^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,}$/;
-
-export type SmtpValidationInput = {
-  host: string;
-  port: number;
-  securityMode: SecurityMode;
-};
-
-export type NormalizedSmtpInput = {
-  host: string;
-  port: number;
-  securityMode: SecurityMode;
-};
+export type SmtpValidationInput = SmtpConnectionValidationInput;
+export type NormalizedSmtpInput = NormalizedSmtpConnectionInput;
 
 export function validateSmtpInput(input: SmtpValidationInput): NormalizedSmtpInput {
-  const host = (input.host || "").trim().toLowerCase();
-  const port = Number(input.port);
-  if (!host || !DOMAIN_REGEX.test(host) || isIP(host) !== 0) {
+  const normalized = validateSmtpConnectionInput(input);
+
+  if (isIP(normalized.host) !== 0) {
     throw new Error("SMTP 호스트는 도메인 형식이어야 합니다.");
   }
-
-  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
-    throw new Error("SMTP 포트는 1~65535 범위의 정수여야 합니다.");
-  }
-
-  const normalizedMode = input.securityMode;
-
-  if (port === 465 && normalizedMode !== "SMTPS") {
-    throw new Error("포트 465 사용 시 보안 모드는 SMTPS 여야 합니다.");
-  }
-  if (port === 587 && normalizedMode !== "STARTTLS") {
-    throw new Error("포트 587 사용 시 보안 모드는 STARTTLS 여야 합니다.");
-  }
-  if (port !== 465 && port !== 587 && normalizedMode !== "NONE") {
-    throw new Error("직접 입력한 포트는 '보안 모드 없음'과 함께 사용해야 합니다.");
-  }
-
-  const normalized: NormalizedSmtpInput = {
-    host,
-    port,
-    securityMode: normalizedMode,
-  };
 
   return normalized;
 }

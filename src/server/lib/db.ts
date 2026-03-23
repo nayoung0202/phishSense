@@ -9,7 +9,7 @@ export type TenantSmtpConfig = {
   password?: string | null;
   tlsVerify: boolean;
   rateLimitPerMin: number;
-  allowedRecipientDomains: string[];
+  allowedSenderDomains: string[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -32,7 +32,7 @@ export type UpsertTenantSmtpConfig = {
   password?: string | null;
   tlsVerify: boolean;
   rateLimitPerMin: number;
-  allowedRecipientDomains?: string[];
+  allowedSenderDomains?: string[];
   isActive: boolean;
 };
 
@@ -68,11 +68,11 @@ export async function upsertTenantSmtpConfig(payload: UpsertTenantSmtpConfig) {
     password: payload.password ?? existing?.password ?? null,
     tlsVerify: payload.tlsVerify,
     rateLimitPerMin: payload.rateLimitPerMin,
-    allowedRecipientDomains: payload.allowedRecipientDomains
+    allowedSenderDomains: payload.allowedSenderDomains
       ? Array.from(
-          new Set(payload.allowedRecipientDomains.map((domain) => domain.trim().toLowerCase())),
+          new Set(payload.allowedSenderDomains.map((domain) => domain.trim().toLowerCase())),
         )
-      : existing?.allowedRecipientDomains ?? [],
+      : existing?.allowedSenderDomains ?? [],
     isActive: payload.isActive,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,

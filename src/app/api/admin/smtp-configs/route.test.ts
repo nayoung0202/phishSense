@@ -45,7 +45,7 @@ describe("GET /api/admin/smtp-configs", () => {
         port: 587,
         securityMode: "STARTTLS",
         username: "alerts@tenant-a.example",
-        allowedRecipientDomains: ["tenant-a.example"],
+        allowedSenderDomains: ["tenant-a.example"],
         isActive: true,
         hasPassword: true,
         lastTestedAt: null,

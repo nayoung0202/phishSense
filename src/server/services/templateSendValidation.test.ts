@@ -101,7 +101,7 @@ describe("validateProjectForSend runtime config", () => {
       password: "secret",
       tlsVerify: true,
       rateLimitPerMin: 60,
-      allowedRecipientDomains: ["example.com"],
+      allowedSenderDomains: ["example.com"],
       isActive: true,
       lastTestedAt: null,
       lastTestStatus: null,
@@ -146,7 +146,7 @@ describe("validateProjectForSend runtime config", () => {
       password: "secret",
       tlsVerify: true,
       rateLimitPerMin: 60,
-      allowedRecipientDomains: ["example.com"],
+      allowedSenderDomains: ["example.com"],
       isActive: false,
       lastTestedAt: null,
       lastTestStatus: null,
@@ -162,5 +162,70 @@ describe("validateProjectForSend runtime config", () => {
     expect(result.issues).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: "smtp_inactive" })]),
     );
+  });
+
+  it("허용 발신 도메인과 다른 프로젝트 발신 이메일은 발송 검증에서 차단한다", async () => {
+    const storage = buildStorage({
+      id: "smtp-1",
+      tenantId: "tenant-a",
+      name: "tenant-a",
+      host: "smtp.example.com",
+      port: 587,
+      securityMode: "STARTTLS",
+      username: "mailer@example.com",
+      password: "secret",
+      tlsVerify: true,
+      rateLimitPerMin: 60,
+      allowedSenderDomains: ["example.com"],
+      isActive: true,
+      lastTestedAt: null,
+      lastTestStatus: null,
+      lastTestError: null,
+      hasPassword: true,
+      createdAt: null,
+      updatedAt: null,
+    });
+
+    const result = await validateProjectForSend(storage, {
+      ...baseProject,
+      fromName: "보안팀",
+      fromEmail: "security@other.example",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "sender_domain_not_allowed" })]),
+    );
+  });
+
+  it("허용 발신 도메인의 하위 도메인 프로젝트 발신 이메일은 통과한다", async () => {
+    const storage = buildStorage({
+      id: "smtp-1",
+      tenantId: "tenant-a",
+      name: "tenant-a",
+      host: "smtp.example.com",
+      port: 587,
+      securityMode: "STARTTLS",
+      username: "mailer@example.com",
+      password: "secret",
+      tlsVerify: true,
+      rateLimitPerMin: 60,
+      allowedSenderDomains: ["example.com"],
+      isActive: true,
+      lastTestedAt: null,
+      lastTestStatus: null,
+      lastTestError: null,
+      hasPassword: true,
+      createdAt: null,
+      updatedAt: null,
+    });
+
+    const result = await validateProjectForSend(storage, {
+      ...baseProject,
+      fromName: "보안팀",
+      fromEmail: "security@auth.example.com",
+    });
+
+    expect(result).toEqual({ ok: true, issues: [] });
   });
 });

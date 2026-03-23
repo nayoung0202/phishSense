@@ -32,39 +32,48 @@ export function SmtpConfigDetail({
 }: SmtpConfigDetailProps) {
   const { toast } = useToast();
   const [formResetKey, setFormResetKey] = useState(0);
+  const [savedConfig, setSavedConfig] = useState<SmtpConfigResponse | null>(null);
   const formRef = useRef<SmtpConfigFormHandle>(null);
   const queryClient = useQueryClient();
+  const activeSmtpAccountId = smtpAccountId ?? savedConfig?.id ?? "";
+  const isPersistedConfig = activeSmtpAccountId.length > 0;
+  const effectiveMode = isPersistedConfig ? "edit" : mode;
 
-  const shouldFetch = mode === "edit" && Boolean(smtpAccountId);
+  const shouldFetch = isPersistedConfig;
   const {
-    data: configData,
+    data: fetchedConfigData,
     error: fetchError,
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["smtp-config", smtpAccountId],
-    queryFn: () => getSmtpConfig(smtpAccountId ?? ""),
+    queryKey: ["smtp-config", activeSmtpAccountId],
+    queryFn: () => getSmtpConfig(activeSmtpAccountId),
     enabled: shouldFetch,
   });
+  const configData = (fetchedConfigData as SmtpConfigResponse | undefined) ?? savedConfig ?? null;
 
   const refreshConfig = useCallback(() => {
-    if (!smtpAccountId) return;
+    if (!activeSmtpAccountId) return;
     void refetch();
-  }, [smtpAccountId, refetch]);
+  }, [activeSmtpAccountId, refetch]);
 
   const updateMutation = useMutation({
     mutationFn: (payload: UpdateSmtpConfigPayload) =>
-      mode === "create"
-        ? createSmtpConfig(payload)
-        : updateSmtpConfig(smtpAccountId ?? "", payload),
+      activeSmtpAccountId
+        ? updateSmtpConfig(activeSmtpAccountId, payload)
+        : createSmtpConfig(payload),
     onSuccess: (result) => {
-      const savedConfigId = result?.item?.id ?? smtpAccountId;
-      toast({ title: "SMTP 설정을 저장했습니다." });
+      const nextConfig = result?.item ?? null;
+      const savedConfigId = nextConfig?.id ?? activeSmtpAccountId;
+      if (nextConfig) {
+        setSavedConfig(nextConfig);
+      }
+      toast({ title: "발송 설정을 저장했습니다." });
       void queryClient.invalidateQueries({ queryKey: ["smtp-configs"] });
       if (savedConfigId) {
         void queryClient.invalidateQueries({ queryKey: ["smtp-config", savedConfigId] });
       }
-      if (mode === "edit") {
+      if (savedConfigId) {
         refreshConfig();
       }
       if (onSaveSuccess) {
@@ -78,7 +87,7 @@ export function SmtpConfigDetail({
   });
 
   const testMutation = useMutation({
-    mutationFn: (payload: TestSmtpConfigPayload) => testSmtpConfig(smtpAccountId ?? "", payload),
+    mutationFn: (payload: TestSmtpConfigPayload) => testSmtpConfig(activeSmtpAccountId, payload),
     onSuccess: (response) => {
       toast({
         title: "테스트 발송을 요청했습니다.",
@@ -109,11 +118,11 @@ export function SmtpConfigDetail({
   const fetchErrorMessage = useMemo(() => {
     if (!fetchError) return null;
     if (fetchError instanceof Error) return fetchError.message;
-    return "SMTP 설정을 불러오지 못했습니다.";
+    return "발송 설정을 불러오지 못했습니다.";
   }, [fetchError]);
 
   const testDisabledReason = useMemo(() => {
-    if (mode === "create") {
+    if (!activeSmtpAccountId) {
       return "등록을 완료한 뒤 테스트하세요.";
     }
     if (!configData) {
@@ -126,7 +135,7 @@ export function SmtpConfigDetail({
       return "테스트 발송은 465 또는 587 포트에서만 지원됩니다.";
     }
     return undefined;
-  }, [configData, mode]);
+  }, [activeSmtpAccountId, configData]);
 
   const canTest = Boolean(!testDisabledReason);
 
@@ -136,14 +145,13 @@ export function SmtpConfigDetail({
   }, [refreshConfig]);
 
   const initialFormData = useMemo<SmtpConfigResponse | null>(() => {
-    if (mode === "create") {
+    if (!configData) {
       return createEmptySmtpConfig(tenantId ?? "") as SmtpConfigResponse;
     }
-    return (configData as SmtpConfigResponse | undefined) ?? null;
-  }, [configData, mode, tenantId]);
+    return configData;
+  }, [configData, tenantId]);
 
-  const testPanelData = mode === "edit" ? (configData ?? null) : null;
-  const formIdentifier = smtpAccountId ?? tenantId ?? "new";
+  const formIdentifier = activeSmtpAccountId || tenantId || "new";
 
   return (
     <div className="space-y-6 px-4 py-6 lg:px-8">
@@ -164,34 +172,34 @@ export function SmtpConfigDetail({
         </div>
       </div>
 
-      {mode === "edit" && fetchErrorMessage && (
+      {shouldFetch && fetchErrorMessage && (
         <Alert variant="destructive">
-          <AlertTitle>설정 불러오기 실패</AlertTitle>
+          <AlertTitle>발송 설정 불러오기 실패</AlertTitle>
           <AlertDescription>{fetchErrorMessage.slice(0, 400)}</AlertDescription>
         </Alert>
       )}
 
       <SmtpConfigForm
         ref={formRef}
-        key={`${formIdentifier}-${mode}-${formResetKey}`}
-        mode={mode}
+        key={`${formIdentifier}-${effectiveMode}-${formResetKey}`}
+        mode={effectiveMode}
         tenantId={tenantId ?? configData?.tenantId ?? ""}
         initialData={initialFormData}
         onSubmit={handleSave}
         isSubmitting={updateMutation.isPending}
-        disabled={mode === "create" ? updateMutation.isPending : !configData || updateMutation.isPending}
+        disabled={updateMutation.isPending || (shouldFetch && !configData)}
       />
 
       <SmtpTestPanel
-        key={`test-${formIdentifier}-${mode}-${formResetKey}`}
+        key={`test-${formIdentifier}-${effectiveMode}-${formResetKey}`}
         onSubmit={handleTest}
         isTesting={testMutation.isPending}
         disabled={!canTest || testMutation.isPending || updateMutation.isPending}
         disabledReason={testDisabledReason}
-        allowedDomains={testPanelData?.allowedRecipientDomains || null}
-        lastTestedAt={testPanelData?.lastTestedAt}
-        lastTestStatus={testPanelData?.lastTestStatus}
-        lastTestError={testPanelData?.lastTestError}
+        allowedSenderDomains={configData?.allowedSenderDomains || null}
+        lastTestedAt={configData?.lastTestedAt}
+        lastTestStatus={configData?.lastTestStatus}
+        lastTestError={configData?.lastTestError}
       />
     </div>
   );
