@@ -42,6 +42,12 @@ describe("Onboarding returnTo 정규화", () => {
     expect(normalizeReturnTo("/foo%5cbar")).toBe("/");
   });
 
+  it("query string에 포함된 invite token 인코딩은 허용한다", () => {
+    expect(normalizeReturnTo("/tenant-invites?token=a%2Fb%3D%3D")).toBe(
+      "/tenant-invites?token=a%2Fb%3D%3D",
+    );
+  });
+
   it("자동 확인 polling은 제한 시간 안에서만 유지한다", () => {
     expect(shouldContinueProvisioningPolling(1000, 2000)).toBe(true);
     expect(shouldContinueProvisioningPolling(1000, 32000)).toBe(false);

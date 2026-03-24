@@ -109,7 +109,8 @@
 
 - 제품 처리:
   - 응답의 `inviteToken`으로 제품 측 landing URL을 만든다.
-  - 예시: `{product-base-url}/tenant-invites/{inviteToken}`
+  - canonical 예시: `{product-base-url}/tenant-invites?token={url-encoded inviteToken}`
+  - 기존 `/tenant-invites/{inviteToken}` 링크는 rewrite 또는 redirect로 호환 유지할 수 있다.
   - `expiresAt`을 관리자 화면에 표시한다.
   - 메일 발송이 없으면 운영 절차 또는 제품 자체 수단으로 링크를 전달한다.
   - `expiresInDays`의 의미는 초대 링크 유효 기간이다. 멤버십 만료일이 아니다.
@@ -145,7 +146,8 @@
 
 ### 초대 수신자 플로우
 
-1. 제품 링크 `/tenant-invites/{token}` 진입
+1. 제품 링크 `/tenant-invites?token={url-encoded token}` 진입
+   - 기존 `/tenant-invites/{token}` 링크는 호환 목적의 rewrite 또는 redirect로 수용 가능
 2. 비로그인 상태면 로그인 화면으로 이동하되 token과 원래 진입 경로를 보존
 3. 로그인 성공 후 invite 수락 화면으로 복귀
 4. `POST /tenant-invites/{token}/accept` 호출

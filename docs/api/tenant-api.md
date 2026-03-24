@@ -160,7 +160,9 @@
 - `platform-api`가 정의하는 contract는 `POST /tenant-invites/{token}/accept` API뿐이다.
 - invite 링크 URL 형식과 로그인 후 복귀 흐름은 제품/BFF가 결정한다.
 - 권장 최소 정책:
-  - raw `inviteToken`을 포함한 제품 측 URL을 사용한다.
+  - canonical invite landing URL은 `{product-base-url}/tenant-invites?token={url-encoded inviteToken}` 형식을 사용한다.
+  - 제품 BFF의 invite accept 호출은 `/api/platform/tenant-invites/{url-encoded token}/accept` 형식으로 인코딩한다.
+  - 이미 배포된 path 형식 링크는 `/tenant-invites/{token}`에서 canonical URL로 rewrite 또는 redirect 한다.
   - 비로그인 상태에서는 로그인으로 보내되 `inviteToken`과 진입 경로를 보존한다.
   - 로그인 후 invite 수락 화면으로 복귀해 `POST /tenant-invites/{token}/accept`를 호출한다.
   - 수락 성공 후 `/platform/me`를 재조회한다.

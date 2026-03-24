@@ -9,10 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useI18n } from "@/components/I18nProvider";
 import type { TranslationKey, TranslationValue } from "@/lib/i18n";
+import { normalizeReturnTo } from "@/lib/returnTo";
+export { normalizeReturnTo };
 
-const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
-const ENCODED_SLASH_PATTERN = /%2f/i;
-const ENCODED_BACKSLASH_PATTERN = /%5c/i;
 const PROVISIONING_POLL_INTERVAL_MS = 2000;
 const PROVISIONING_POLL_TIMEOUT_MS = 1000 * 30;
 const PLATFORM_CONTEXT_QUERY_KEY = ["auth-platform-context"] as const;
@@ -195,19 +194,6 @@ export const shouldContinueProvisioningPolling = (
 ) => {
   if (startedAt === null) return false;
   return now - startedAt < PROVISIONING_POLL_TIMEOUT_MS;
-};
-
-export const normalizeReturnTo = (candidate: string | null) => {
-  if (!candidate) return "/";
-  if (CONTROL_CHAR_PATTERN.test(candidate)) return "/";
-  if (ENCODED_SLASH_PATTERN.test(candidate) || ENCODED_BACKSLASH_PATTERN.test(candidate)) {
-    return "/";
-  }
-  if (!candidate.startsWith("/")) return "/";
-  if (candidate.startsWith("//")) return "/";
-  if (candidate.includes("\\")) return "/";
-  if (candidate.startsWith("/api/auth")) return "/";
-  return candidate;
 };
 
 export default function Onboarding() {

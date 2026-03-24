@@ -9,16 +9,26 @@ import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/I18nProvider";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { acceptTenantInvite } from "@/lib/platformApi";
+import { buildTenantInvitePagePath } from "@/lib/tenantInvite";
 
-export default function TenantInviteAcceptPage({ token }: { token: string }) {
+export default function TenantInviteAcceptPage({ token }: { token: string | null }) {
   const router = useRouter();
   const { t } = useI18n();
   const sessionQuery = useAuthSession();
+  const hasToken = Boolean(token);
 
-  const returnTo = useMemo(() => `/tenant-invites/${token}`, [token]);
+  const returnTo = useMemo(
+    () => (token ? buildTenantInvitePagePath(token) : "/tenant-invites"),
+    [token],
+  );
 
   const acceptMutation = useMutation({
-    mutationFn: () => acceptTenantInvite(token),
+    mutationFn: () => {
+      if (!token) {
+        throw new Error(t("invite.invalid"));
+      }
+      return acceptTenantInvite(token);
+    },
     onSuccess: (response) => {
       const context = response.platformContext as {
         currentTenantId?: string | null;
@@ -43,10 +53,11 @@ export default function TenantInviteAcceptPage({ token }: { token: string }) {
   });
 
   useEffect(() => {
+    if (!token) return;
     if (sessionQuery.data?.authenticated === false) {
       router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
     }
-  }, [router, returnTo, sessionQuery.data?.authenticated]);
+  }, [router, returnTo, sessionQuery.data?.authenticated, token]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(78,195,224,0.16),transparent_32%),linear-gradient(180deg,rgba(7,13,24,0.98),rgba(5,8,16,1))] px-6">
@@ -69,6 +80,9 @@ export default function TenantInviteAcceptPage({ token }: { token: string }) {
             <p className="rounded-2xl border border-border/70 bg-background/40 p-4 text-sm">
               {sessionQuery.data.user?.email ?? "-"}
             </p>
+            {!hasToken ? (
+              <p className="text-sm text-destructive">{t("invite.invalid")}</p>
+            ) : null}
             {acceptMutation.isError ? (
               <p className="text-sm text-destructive">
                 {acceptMutation.error instanceof Error
@@ -79,7 +93,7 @@ export default function TenantInviteAcceptPage({ token }: { token: string }) {
             <Button
               type="button"
               className="w-full"
-              disabled={acceptMutation.isPending}
+              disabled={!hasToken || acceptMutation.isPending}
               onClick={() => acceptMutation.mutate()}
             >
               {acceptMutation.isPending ? (
@@ -94,11 +108,15 @@ export default function TenantInviteAcceptPage({ token }: { token: string }) {
           </div>
         ) : (
           <div className="mt-8">
-            <Button asChild className="w-full">
-              <a href={`/login?returnTo=${encodeURIComponent(returnTo)}`}>
-                {t("invite.goLogin")}
-              </a>
-            </Button>
+            {hasToken ? (
+              <Button asChild className="w-full">
+                <a href={`/login?returnTo=${encodeURIComponent(returnTo)}`}>
+                  {t("invite.goLogin")}
+                </a>
+              </Button>
+            ) : (
+              <p className="text-sm text-destructive">{t("invite.invalid")}</p>
+            )}
           </div>
         )}
       </Card>

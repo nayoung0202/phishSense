@@ -269,8 +269,8 @@
   - `POST /tenant-invites/{token}/accept`
 - 즉, 브라우저에서 여는 invite 링크 URL 형식은 `platform-api`가 직접 제공하지 않는다.
 - 제품/BFF 권장 정책:
-  - raw `inviteToken`을 포함한 제품 측 landing URL을 만든다.
-  - 예시: `{product-base-url}/tenant-invites/{inviteToken}`
+  - canonical landing URL은 `{product-base-url}/tenant-invites?token={url-encoded inviteToken}` 형식을 사용한다.
+  - 이미 배포된 path 형식 링크가 있으면 `/tenant-invites/{inviteToken}`는 canonical URL로 rewrite 또는 redirect 한다.
   - 비로그인 상태로 진입하면 로그인 화면으로 보내되 `inviteToken`과 원래 진입 경로를 보존한다.
   - 로그인 성공 후 invite 수락 화면으로 복귀한 다음 `POST /tenant-invites/{token}/accept`를 호출한다.
   - 수락 성공 후 `/platform/me`를 재조회하고 현재 tenant 진입 또는 selector로 보낸다.

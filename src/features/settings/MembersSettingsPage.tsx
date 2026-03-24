@@ -21,6 +21,7 @@ import {
   createTenantInvite,
   fetchTenantMembers,
 } from "@/lib/platformApi";
+import { buildTenantInvitePageUrl } from "@/lib/tenantInvite";
 import { useSettingsTenant } from "@/features/settings/useSettingsTenant";
 
 const roleOptions = [
@@ -83,7 +84,7 @@ export default function MembersSettingsPage() {
 
   const inviteLink =
     latestInvite?.inviteToken && origin
-      ? `${origin}/tenant-invites/${latestInvite.inviteToken}`
+      ? buildTenantInvitePageUrl(origin, latestInvite.inviteToken)
       : null;
 
   if (isTenantLoading) {

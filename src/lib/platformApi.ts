@@ -1,5 +1,7 @@
 "use client";
 
+import { buildTenantInviteAcceptApiPath } from "@/lib/tenantInvite";
+
 type ApiErrorBody = {
   error?: string;
   message?: string;
@@ -81,7 +83,7 @@ export async function acceptTenantInvite(token: string) {
   return requestJson<{
     ok: boolean;
     platformContext: unknown;
-  }>(`/api/platform/tenant-invites/${token}/accept`, {
+  }>(buildTenantInviteAcceptApiPath(token), {
     method: "POST",
   });
 }

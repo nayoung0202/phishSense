@@ -27,6 +27,12 @@ describe("normalizeReturnTo", () => {
     expect(normalizeReturnTo("%5C%5Cevil.com")).toBe("/");
   });
 
+  it("query string 안의 인코딩된 token 값은 유지한다", () => {
+    expect(normalizeReturnTo("/tenant-invites?token=a%2Fb%3D%3D")).toBe(
+      "/tenant-invites?token=a%2Fb%3D%3D",
+    );
+  });
+
   it("정상 상대 경로는 유지한다", () => {
     expect(normalizeReturnTo("/projects?tab=list")).toBe("/projects?tab=list");
   });

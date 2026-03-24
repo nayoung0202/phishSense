@@ -57,7 +57,8 @@
 ### 멤버 초대
 
 - 제품/BFF는 `platform-api` 실제 경로 `/tenants/...`, `/tenant-invites/...`를 그대로 사용한다.
-- 제품은 invite 생성 응답의 `inviteToken`으로 제품 링크를 조합한다.
+- 제품은 invite 생성 응답의 `inviteToken`으로 canonical 링크 `/tenant-invites?token={url-encoded inviteToken}`를 조합한다.
+- 기존 `/tenant-invites/{token}` 형식 링크는 rewrite 또는 redirect로 호환 유지할 수 있다.
 - `inviteToken`은 MVP 편의용 응답으로 간주하며 장기 고정 계약으로 취급하지 않는다.
 - 기본 `expiresInDays`는 `7`로 고정하고, 현재 범위에서 관리자 입력으로 노출하지 않는다.
 
@@ -89,7 +90,8 @@
 - `/settings/subscription`
 - `/settings/credits`
 - `/settings/api-keys`
-- `/tenant-invites/[token]`
+- `/tenant-invites?token=...`
+- legacy alias: `/tenant-invites/{token}`
 
 ### 제품 BFF
 
