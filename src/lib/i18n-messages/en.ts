@@ -102,10 +102,35 @@ export const enMessages: TranslationMessages = {
   "settings.subscription.startExperience": "Start free experience",
   "settings.subscription.upgrade": "Subscribe",
   "settings.subscription.contact": "Contact sales",
+  "settings.subscription.billingStatus": "Billing status",
+  "settings.subscription.billingCycle": "Billing cycle",
   "settings.subscription.range": "Seats",
   "settings.subscription.monthlyEquivalent": "Monthly equivalent",
   "settings.subscription.annualTotal": "Annual total",
   "settings.subscription.includedCredits": "Included credits",
+  "settings.subscription.currentPeriodEnd": "Current period end",
+  "settings.subscription.cancelAtPeriodEnd": "Cancellation scheduled",
+  "settings.subscription.noActiveBilling":
+    "There is no active billing subscription.",
+  "settings.subscription.updatePaymentMethod": "Update payment method",
+  "settings.subscription.scheduleCancellation": "Schedule cancellation",
+  "settings.subscription.refreshingStatus":
+    "Refreshing the latest billing status.",
+  "settings.subscription.checkoutSyncing":
+    "Checking the billing state after returning from Stripe Checkout.",
+  "settings.subscription.checkoutConfirmed":
+    "Your Business plan is confirmed.",
+  "settings.subscription.checkoutPending":
+    "Payment may be complete, but entitlement reflection is still pending.",
+  "settings.subscription.checkoutCancelled": "Checkout was cancelled.",
+  "settings.subscription.cancelSyncing":
+    "Checking whether the cancellation schedule has been applied.",
+  "settings.subscription.cancelConfirmed":
+    "The cancellation schedule is confirmed.",
+  "settings.subscription.cancelPending":
+    "Cancellation scheduling is taking longer than expected. Please check again shortly.",
+  "settings.subscription.portalReturned":
+    "The latest billing state was refreshed after returning from the billing portal.",
   "settings.subscription.unavailable":
     "Subscription data is currently unavailable. Please try again later.",
   "settings.subscription.requireOwner":

@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  PLATFORM_BILLING_APP_KEY,
+  PLATFORM_BILLING_CYCLE,
+  PLATFORM_BILLING_PLAN_CODE,
+  PLATFORM_BILLING_PRODUCT_ID,
+  PLATFORM_BILLING_ROUTE_KEYS,
+} from "@/lib/platformBilling";
+import {
   createPlatformCheckoutSession,
   PlatformApiError,
 } from "@/server/platform/client";
@@ -17,10 +24,7 @@ type RouteContext = {
 };
 
 const bodySchema = z.object({
-  planCode: z.string().trim().min(1),
-  seatCount: z.number().int().positive().nullable().optional(),
-  successUrl: z.string().trim().url(),
-  cancelUrl: z.string().trim().url(),
+  seatCount: z.number().int().positive(),
 });
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
@@ -39,21 +43,40 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       );
     }
 
+    const idempotencyKey = request.headers.get("Idempotency-Key")?.trim();
+    if (!idempotencyKey) {
+      return NextResponse.json(
+        { error: "Idempotency-Key 헤더가 필요합니다." },
+        { status: 400 },
+      );
+    }
+
     const payload = bodySchema.parse(await request.json());
     const session = await createPlatformCheckoutSession({
       accessToken: context.auth.accessToken,
       tenantId,
-      input: payload,
+      idempotencyKey,
+      input: {
+        productId: PLATFORM_BILLING_PRODUCT_ID,
+        planCode: PLATFORM_BILLING_PLAN_CODE,
+        billingCycle: PLATFORM_BILLING_CYCLE,
+        seatCount: payload.seatCount,
+        appKey: PLATFORM_BILLING_APP_KEY,
+        successRouteKey: PLATFORM_BILLING_ROUTE_KEYS.checkoutSuccess,
+        cancelRouteKey: PLATFORM_BILLING_ROUTE_KEYS.checkoutCancel,
+      },
     });
 
     logPlatformAuditEvent({
       action: "billing.checkout_session.created",
       tenantId,
       actorUserId: context.auth.user.sub,
-      targetId: session.sessionId ?? null,
+      targetId: session.sessionId,
       metadata: {
-        planCode: payload.planCode,
-        seatCount: payload.seatCount ?? null,
+        productId: PLATFORM_BILLING_PRODUCT_ID,
+        planCode: PLATFORM_BILLING_PLAN_CODE,
+        billingCycle: PLATFORM_BILLING_CYCLE,
+        seatCount: payload.seatCount,
       },
     });
 

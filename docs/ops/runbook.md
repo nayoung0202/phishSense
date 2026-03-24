@@ -55,8 +55,15 @@ npm run worker:send
 ### 플랫폼 연동
 
 - `PLATFORM_API_BASE_URL`
+- `platform-api` access token audience
 - `PHISHSENSE_CALLBACK_SECRET`
 - `PHISHSENSE_CALLBACK_KEY_ID`
+- billing app key (`PHISHSENSE`)
+- 환경별 billing redirect route key allowlist
+  - `CHECKOUT_SUCCESS`
+  - `CHECKOUT_CANCEL`
+  - `PORTAL_RETURN`
+  - `PORTAL_DONE`
 
 ### SMTP/발송
 

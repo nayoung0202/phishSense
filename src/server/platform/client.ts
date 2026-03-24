@@ -3,6 +3,8 @@ import {
   platformAiKeySchema,
   platformAiKeysResponseSchema,
   platformBillingCatalogResponseSchema,
+  platformBillingSubscriptionResponseSchema,
+  platformCheckoutSessionRequestSchema,
   platformCheckoutSessionResponseSchema,
   platformCreateAiKeyRequestSchema,
   platformCreateInviteRequestSchema,
@@ -15,10 +17,10 @@ import {
   platformPortalSessionRequestSchema,
   platformPortalSessionResponseSchema,
   platformTenantMembersResponseSchema,
-  platformTenantSubscriptionResponseSchema,
   platformUpdateAiKeyRequestSchema,
   type PlatformAiKeysResponse,
   type PlatformBillingCatalogResponse,
+  type PlatformBillingSubscriptionResponse,
   type PlatformCheckoutSessionResponse,
   type PlatformCreateAiKeyRequest,
   type PlatformCreateInviteRequest,
@@ -28,9 +30,9 @@ import {
   type PlatformCreditAuthorizationResponse,
   type PlatformCreditsResponse,
   type PlatformMeResponse,
+  type PlatformCheckoutSessionRequest,
   type PlatformPortalSessionRequest,
   type PlatformPortalSessionResponse,
-  type PlatformTenantSubscriptionResponse,
   type PlatformUpdateAiKeyRequest,
 } from "./types";
 
@@ -90,6 +92,7 @@ const requestPlatform = async (options: {
   path: string;
   method?: string;
   body?: unknown;
+  headers?: HeadersInit;
   tenantIdHeader?: string | null;
 }) => {
   const { baseUrl } = getPlatformClientConfig();
@@ -104,6 +107,7 @@ const requestPlatform = async (options: {
       ...(options.tenantIdHeader
         ? { "X-Platform-Tenant-Id": options.tenantIdHeader }
         : {}),
+      ...options.headers,
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
@@ -200,34 +204,35 @@ export async function fetchPlatformBillingCatalog(options: {
   return platformBillingCatalogResponseSchema.parse(parsed);
 }
 
-export async function fetchPlatformTenantSubscription(options: {
+export async function fetchPlatformBillingSubscription(options: {
   accessToken: string;
   tenantId: string;
-}): Promise<PlatformTenantSubscriptionResponse> {
+  productId: string;
+}): Promise<PlatformBillingSubscriptionResponse> {
   const response = await requestPlatform({
     accessToken: options.accessToken,
-    path: `/tenants/${options.tenantId}/subscription`,
+    path: `/tenants/${options.tenantId}/billing/subscriptions/${options.productId}`,
   });
 
   const parsed = await parseJson<unknown>(response);
-  return platformTenantSubscriptionResponseSchema.parse(parsed);
+  return platformBillingSubscriptionResponseSchema.parse(parsed);
 }
 
 export async function createPlatformCheckoutSession(options: {
   accessToken: string;
   tenantId: string;
-  input: {
-    planCode: string;
-    seatCount?: number | null;
-    successUrl: string;
-    cancelUrl: string;
-  };
+  idempotencyKey: string;
+  input: PlatformCheckoutSessionRequest;
 }): Promise<PlatformCheckoutSessionResponse> {
+  const payload = platformCheckoutSessionRequestSchema.parse(options.input);
   const response = await requestPlatform({
     accessToken: options.accessToken,
     path: `/tenants/${options.tenantId}/billing/checkout-sessions`,
     method: "POST",
-    body: options.input,
+    headers: {
+      "Idempotency-Key": options.idempotencyKey,
+    },
+    body: payload,
   });
 
   const parsed = await parseJson<unknown>(response);
@@ -237,6 +242,7 @@ export async function createPlatformCheckoutSession(options: {
 export async function createPlatformPortalSession(options: {
   accessToken: string;
   tenantId: string;
+  idempotencyKey: string;
   input: PlatformPortalSessionRequest;
 }): Promise<PlatformPortalSessionResponse> {
   const payload = platformPortalSessionRequestSchema.parse(options.input);
@@ -244,6 +250,9 @@ export async function createPlatformPortalSession(options: {
     accessToken: options.accessToken,
     path: `/tenants/${options.tenantId}/billing/portal-sessions`,
     method: "POST",
+    headers: {
+      "Idempotency-Key": options.idempotencyKey,
+    },
     body: payload,
   });
 

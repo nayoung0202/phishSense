@@ -1,7 +1,6 @@
 import type {
   PlatformBillingCatalogResponse,
   PlatformCreditsResponse,
-  PlatformTenantSubscriptionResponse,
 } from "./types";
 import { PLATFORM_PRODUCT_ID } from "./types";
 
@@ -124,28 +123,6 @@ const defaultCreditPolicies = [
 ];
 
 export const getFallbackBillingCatalog = () => defaultBillingCatalog;
-
-export const getFallbackTenantSubscription = (args: {
-  tenantId: string;
-  planCode?: string | null;
-  seatLimit?: number | null;
-  status?: string | null;
-}): PlatformTenantSubscriptionResponse => ({
-  tenantId: args.tenantId,
-  productId: PLATFORM_PRODUCT_ID,
-  status: args.status ?? "ACTIVE",
-  planCode: args.planCode ?? "FREE",
-  seatCount: null,
-  seatLimit: args.seatLimit ?? 5,
-  billingInterval: args.planCode === "BUSINESS" ? "annual" : null,
-  currentPeriodEnd: null,
-  includedCredits:
-    args.planCode === "BUSINESS"
-      ? 10
-      : args.planCode === "FREE"
-        ? 2
-        : null,
-});
 
 export const getFallbackCreditsSummary = (tenantId: string): PlatformCreditsResponse => ({
   tenantId,

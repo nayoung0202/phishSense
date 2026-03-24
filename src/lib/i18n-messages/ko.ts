@@ -99,10 +99,34 @@ export const koMessages = {
   "settings.subscription.startExperience": "무료 체험 시작",
   "settings.subscription.upgrade": "구독하기",
   "settings.subscription.contact": "문의하기",
+  "settings.subscription.billingStatus": "결제 상태",
+  "settings.subscription.billingCycle": "결제 주기",
   "settings.subscription.range": "사용자 수",
   "settings.subscription.monthlyEquivalent": "월 환산 금액",
   "settings.subscription.annualTotal": "연간 총액",
   "settings.subscription.includedCredits": "포함 크래딧",
+  "settings.subscription.currentPeriodEnd": "현재 결제 기간 종료",
+  "settings.subscription.cancelAtPeriodEnd": "해지 예약",
+  "settings.subscription.noActiveBilling":
+    "현재 활성 billing subscription이 없습니다.",
+  "settings.subscription.updatePaymentMethod": "결제수단 변경",
+  "settings.subscription.scheduleCancellation": "해지 예약",
+  "settings.subscription.refreshingStatus": "최신 billing 상태를 다시 확인하고 있습니다.",
+  "settings.subscription.checkoutSyncing":
+    "Stripe Checkout 복귀 후 결제 반영 상태를 확인하고 있습니다.",
+  "settings.subscription.checkoutConfirmed":
+    "Business 플랜 반영이 확인되었습니다.",
+  "settings.subscription.checkoutPending":
+    "결제는 완료되었을 수 있으나 반영이 지연되고 있습니다. 잠시 후 다시 확인해 주세요.",
+  "settings.subscription.checkoutCancelled": "Checkout이 취소되었습니다.",
+  "settings.subscription.cancelSyncing":
+    "해지 예약 상태를 확인하고 있습니다.",
+  "settings.subscription.cancelConfirmed":
+    "해지 예약이 확인되었습니다.",
+  "settings.subscription.cancelPending":
+    "해지 예약 반영이 지연되고 있습니다. 잠시 후 다시 확인해 주세요.",
+  "settings.subscription.portalReturned":
+    "결제 포털 복귀 후 최신 상태를 다시 확인했습니다.",
   "settings.subscription.unavailable":
     "구독 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
   "settings.subscription.requireOwner":

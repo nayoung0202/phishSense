@@ -103,10 +103,35 @@ export const jaMessages: TranslationMessages = {
   "settings.subscription.startExperience": "無料体験開始",
   "settings.subscription.upgrade": "購読する",
   "settings.subscription.contact": "お問い合わせ",
+  "settings.subscription.billingStatus": "請求状態",
+  "settings.subscription.billingCycle": "請求周期",
   "settings.subscription.range": "ユーザー数",
   "settings.subscription.monthlyEquivalent": "月換算金額",
   "settings.subscription.annualTotal": "年間合計",
   "settings.subscription.includedCredits": "含まれるクレジット",
+  "settings.subscription.currentPeriodEnd": "現在期間の終了日",
+  "settings.subscription.cancelAtPeriodEnd": "解約予約",
+  "settings.subscription.noActiveBilling":
+    "有効な billing subscription はありません。",
+  "settings.subscription.updatePaymentMethod": "支払い方法を変更",
+  "settings.subscription.scheduleCancellation": "解約予約",
+  "settings.subscription.refreshingStatus":
+    "最新の billing 状態を再確認しています。",
+  "settings.subscription.checkoutSyncing":
+    "Stripe Checkout から戻った後の反映状態を確認しています。",
+  "settings.subscription.checkoutConfirmed":
+    "Business プランの反映を確認しました。",
+  "settings.subscription.checkoutPending":
+    "決済は完了している可能性がありますが、反映が遅れています。しばらくしてから再確認してください。",
+  "settings.subscription.checkoutCancelled": "Checkout はキャンセルされました。",
+  "settings.subscription.cancelSyncing":
+    "解約予約状態を確認しています。",
+  "settings.subscription.cancelConfirmed":
+    "解約予約を確認しました。",
+  "settings.subscription.cancelPending":
+    "解約予約の反映が遅れています。しばらくしてから再確認してください。",
+  "settings.subscription.portalReturned":
+    "請求ポータルから戻った後に最新状態を再確認しました。",
   "settings.subscription.unavailable":
     "サブスクリプション情報を取得できませんでした。しばらくしてから再試行してください。",
   "settings.subscription.requireOwner":

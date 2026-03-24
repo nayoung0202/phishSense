@@ -49,9 +49,11 @@ export type PlatformContextResponse = {
   error?: string;
 };
 
+export const PLATFORM_CONTEXT_QUERY_KEY = ["/api/auth/platform-context"] as const;
+
 export function usePlatformContext() {
   return useQuery<PlatformContextResponse>({
-    queryKey: ["/api/auth/platform-context"],
+    queryKey: PLATFORM_CONTEXT_QUERY_KEY,
     retry: false,
   });
 }

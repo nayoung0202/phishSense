@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  PLATFORM_BILLING_APP_KEY,
+  PLATFORM_BILLING_PRODUCT_ID,
+  PLATFORM_BILLING_ROUTE_KEYS,
+} from "@/lib/platformBilling";
+import {
   createPlatformPortalSession,
   PlatformApiError,
 } from "@/server/platform/client";
+import { logPlatformAuditEvent } from "@/server/platform/audit";
 import {
   requireScopedTenantAccess,
   TenantAccessError,
@@ -16,7 +22,7 @@ type RouteContext = {
 };
 
 const bodySchema = z.object({
-  returnUrl: z.string().trim().url(),
+  flowType: z.enum(["payment_method_update", "subscription_cancel"]),
 });
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
@@ -35,11 +41,37 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       );
     }
 
+    const idempotencyKey = request.headers.get("Idempotency-Key")?.trim();
+    if (!idempotencyKey) {
+      return NextResponse.json(
+        { error: "Idempotency-Key 헤더가 필요합니다." },
+        { status: 400 },
+      );
+    }
+
     const payload = bodySchema.parse(await request.json());
     const session = await createPlatformPortalSession({
       accessToken: context.auth.accessToken,
       tenantId,
-      input: payload,
+      idempotencyKey,
+      input: {
+        productId: PLATFORM_BILLING_PRODUCT_ID,
+        flowType: payload.flowType,
+        appKey: PLATFORM_BILLING_APP_KEY,
+        returnRouteKey: PLATFORM_BILLING_ROUTE_KEYS.portalReturn,
+        afterCompletionRouteKey: PLATFORM_BILLING_ROUTE_KEYS.portalDone,
+      },
+    });
+
+    logPlatformAuditEvent({
+      action: "billing.portal_session.created",
+      tenantId,
+      actorUserId: context.auth.user.sub,
+      targetId: session.sessionId,
+      metadata: {
+        productId: PLATFORM_BILLING_PRODUCT_ID,
+        flowType: payload.flowType,
+      },
     });
 
     return NextResponse.json(session);

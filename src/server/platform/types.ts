@@ -102,36 +102,51 @@ export const platformBillingCatalogResponseSchema = z.object({
   plans: z.array(platformBillingPlanSchema).min(1),
 });
 
-export const platformTenantSubscriptionResponseSchema = z.object({
+export const platformBillingSubscriptionResponseSchema = z.object({
   tenantId: z.string().trim().min(1),
   productId: z.string().trim().min(1),
   status: z.string().trim().min(1),
+  providerSubscriptionId: z.string().trim().min(1).nullable().optional(),
   planCode: z.string().trim().min(1).nullable().optional(),
-  seatCount: z.number().int().nonnegative().nullable().optional(),
-  seatLimit: z.number().int().nonnegative().nullable().optional(),
-  billingInterval: z.string().trim().min(1).nullable().optional(),
-  currentPeriodEnd: z.string().trim().min(1).nullable().optional(),
-  includedCredits: z.number().int().nonnegative().nullable().optional(),
+  billingCycle: z.string().trim().min(1).nullable().optional(),
+  quantity: z.number().int().nonnegative().nullable().optional(),
+  cancelAtPeriodEnd: z.boolean().default(false),
+  cancelAt: z.string().trim().min(1).nullable().optional(),
+  canceledAt: z.string().trim().min(1).nullable().optional(),
+  currentPeriodStartAt: z.string().trim().min(1).nullable().optional(),
+  currentPeriodEndAt: z.string().trim().min(1).nullable().optional(),
+  current: z.boolean().default(true),
+  lastSubscriptionEventCreatedAt: z.string().trim().min(1).nullable().optional(),
 });
 
-export const platformCreateCheckoutSessionRequestSchema = z.object({
+export const platformCheckoutSessionRequestSchema = z.object({
+  productId: z.string().trim().min(1),
   planCode: z.string().trim().min(1),
+  billingCycle: z.string().trim().min(1),
   seatCount: z.number().int().positive().nullable().optional(),
-  successUrl: z.string().trim().url(),
-  cancelUrl: z.string().trim().url(),
+  appKey: z.string().trim().min(1),
+  successRouteKey: z.string().trim().min(1),
+  cancelRouteKey: z.string().trim().min(1),
 });
 
 export const platformCheckoutSessionResponseSchema = z.object({
-  checkoutUrl: z.string().trim().url(),
-  sessionId: z.string().trim().min(1).nullable().optional(),
+  sessionId: z.string().trim().min(1),
+  url: z.string().trim().url(),
+  customerId: z.string().trim().min(1).nullable().optional(),
 });
 
 export const platformPortalSessionRequestSchema = z.object({
-  returnUrl: z.string().trim().url(),
+  productId: z.string().trim().min(1),
+  flowType: z.enum(["payment_method_update", "subscription_cancel"]),
+  appKey: z.string().trim().min(1),
+  returnRouteKey: z.string().trim().min(1),
+  afterCompletionRouteKey: z.string().trim().min(1),
 });
 
 export const platformPortalSessionResponseSchema = z.object({
-  portalUrl: z.string().trim().url(),
+  sessionId: z.string().trim().min(1),
+  url: z.string().trim().url(),
+  customerId: z.string().trim().min(1).nullable().optional(),
 });
 
 export const platformCreditPolicySchema = z.object({
@@ -230,11 +245,11 @@ export type PlatformBillingPlan = z.infer<typeof platformBillingPlanSchema>;
 export type PlatformBillingCatalogResponse = z.infer<
   typeof platformBillingCatalogResponseSchema
 >;
-export type PlatformTenantSubscriptionResponse = z.infer<
-  typeof platformTenantSubscriptionResponseSchema
+export type PlatformBillingSubscriptionResponse = z.infer<
+  typeof platformBillingSubscriptionResponseSchema
 >;
-export type PlatformCreateCheckoutSessionRequest = z.infer<
-  typeof platformCreateCheckoutSessionRequestSchema
+export type PlatformCheckoutSessionRequest = z.infer<
+  typeof platformCheckoutSessionRequestSchema
 >;
 export type PlatformCheckoutSessionResponse = z.infer<
   typeof platformCheckoutSessionResponseSchema

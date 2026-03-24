@@ -100,9 +100,9 @@
 - `POST /api/platform/tenants/:tenantId/invites`
 - `POST /api/platform/tenant-invites/:token/accept`
 - `GET /api/platform/billing/catalog`
-- `GET /api/platform/tenants/:tenantId/subscription`
-- `POST /api/platform/tenants/:tenantId/billing/checkout-session`
-- `POST /api/platform/tenants/:tenantId/billing/portal-session`
+- `GET /api/platform/tenants/:tenantId/billing/subscriptions/PHISHSENSE`
+- `POST /api/platform/tenants/:tenantId/billing/checkout-sessions`
+- `POST /api/platform/tenants/:tenantId/billing/portal-sessions`
 - `GET /api/platform/tenants/:tenantId/credits`
 - `POST /api/platform/tenants/:tenantId/credits/authorizations`
 - `POST /api/platform/tenants/:tenantId/credits/authorizations/:id/settle`
@@ -121,6 +121,9 @@
 
 - tenant-scoped BFF는 기존 ready tenant 검증과 membership 검증을 재사용한다.
 - 플랫폼 billing/credits API가 준비되지 않은 개발 환경에서는 서버 fallback 카탈로그를 사용한다.
+- billing v1 checkout/portal POST는 tenant `OWNER`만 허용하고 `Idempotency-Key`를 필수로 전달한다.
+- billing v1 redirect는 raw URL 대신 `appKey=PHISHSENSE`와 route key allowlist 조합을 사용한다.
+- Stripe 복귀 후 제품 접근 제어는 `/platform/me`와 로컬 entitlement projection으로 판단하고, billing subscription 조회는 billing/settings 표시용으로만 사용한다.
 - 현재 AI 실행 엔진은 기존 서버 기본 키 fallback을 유지한다.
 - 제품은 `AI_KEY_SECRET` 기반 암호화 저장을 사용하고, 추후 플랫폼 BYOK 중앙관리 또는 provider proxy로 전환 가능하도록 경계를 유지한다.
 
@@ -129,5 +132,6 @@
 - 사이드바 최하단 계정 카드가 현재 로그인 이메일을 표시한다.
 - 멤버 화면에서 목록 조회, 초대 링크 생성, 링크 복사가 가능하다.
 - 초대 수락 후 `GET /platform/me`가 재조회되고 onboarding/ready 분기가 갱신된다.
-- 구독 화면은 서버 카탈로그를 렌더링하고 Business Checkout URL로 이동한다.
+- 구독 화면은 서버 카탈로그를 렌더링하고 route key 기반 Stripe Checkout/Portal로 이동한다.
+- Stripe 복귀 후 `GET /platform/me`와 `GET /tenants/{tenantId}/billing/subscriptions/PHISHSENSE` 재조회 결과로 상태를 갱신한다.
 - 크래딧 enforcement가 켜지면 usage context에 따라 차감 정책이 달라진다.

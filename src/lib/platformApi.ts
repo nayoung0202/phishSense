@@ -1,6 +1,12 @@
 "use client";
 
 import { buildTenantInviteAcceptApiPath } from "@/lib/tenantInvite";
+import {
+  buildTenantBillingCheckoutSessionsApiPath,
+  buildTenantBillingPortalSessionsApiPath,
+  buildTenantBillingSubscriptionApiPath,
+  type PlatformBillingPortalFlowType,
+} from "@/lib/platformBilling";
 
 type ApiErrorBody = {
   error?: string;
@@ -15,8 +21,18 @@ type PlatformRequestError = Error & {
 
 async function requestJson<TResponse = unknown>(
   path: string,
+  init?: RequestInit,
+): Promise<TResponse>;
+async function requestJson<TResponse = unknown>(
+  path: string,
+  init: RequestInit | undefined,
+  options: { nullOnStatuses: number[] },
+): Promise<TResponse | null>;
+async function requestJson<TResponse = unknown>(
+  path: string,
   init: RequestInit = {},
-): Promise<TResponse> {
+  options?: { nullOnStatuses?: number[] },
+): Promise<TResponse | null> {
   const headers: HeadersInit = init.body
     ? {
         "Content-Type": "application/json",
@@ -42,6 +58,10 @@ async function requestJson<TResponse = unknown>(
   }
 
   if (!response.ok) {
+    if (options?.nullOnStatuses?.includes(response.status)) {
+      return null;
+    }
+
     const body = parsedBody as ApiErrorBody;
     const message = body?.error || body?.message || response.statusText;
     const error = new Error(message || "요청에 실패했습니다.") as PlatformRequestError;
@@ -119,45 +139,61 @@ export async function fetchBillingCatalog() {
   }>(`/api/platform/billing/catalog`);
 }
 
-export async function fetchTenantSubscription(tenantId: string) {
+export async function fetchBillingSubscription(tenantId: string) {
   return requestJson<{
     tenantId: string;
     productId: string;
+    providerSubscriptionId?: string | null;
     status: string;
     planCode?: string | null;
-    seatCount?: number | null;
-    seatLimit?: number | null;
-    billingInterval?: string | null;
-    currentPeriodEnd?: string | null;
-    includedCredits?: number | null;
-  }>(`/api/platform/tenants/${tenantId}/subscription`);
+    billingCycle?: string | null;
+    quantity?: number | null;
+    cancelAtPeriodEnd: boolean;
+    cancelAt?: string | null;
+    canceledAt?: string | null;
+    currentPeriodStartAt?: string | null;
+    currentPeriodEndAt?: string | null;
+    current: boolean;
+    lastSubscriptionEventCreatedAt?: string | null;
+  } | null>(buildTenantBillingSubscriptionApiPath(tenantId), undefined, {
+    nullOnStatuses: [404],
+  });
 }
 
 export async function createCheckoutSession(input: {
   tenantId: string;
-  planCode: string;
-  seatCount?: number | null;
-  successUrl: string;
-  cancelUrl: string;
+  seatCount: number;
+  idempotencyKey: string;
 }) {
-  return requestJson<{ checkoutUrl: string; sessionId?: string | null }>(
-    `/api/platform/tenants/${input.tenantId}/billing/checkout-session`,
+  return requestJson<{ sessionId: string; url: string; customerId?: string | null }>(
+    buildTenantBillingCheckoutSessionsApiPath(input.tenantId),
     {
       method: "POST",
-      body: JSON.stringify(input),
+      headers: {
+        "Idempotency-Key": input.idempotencyKey,
+      },
+      body: JSON.stringify({
+        seatCount: input.seatCount,
+      }),
     },
   );
 }
 
 export async function createPortalSession(input: {
   tenantId: string;
-  returnUrl: string;
+  flowType: PlatformBillingPortalFlowType;
+  idempotencyKey: string;
 }) {
-  return requestJson<{ portalUrl: string }>(
-    `/api/platform/tenants/${input.tenantId}/billing/portal-session`,
+  return requestJson<{ sessionId: string; url: string; customerId?: string | null }>(
+    buildTenantBillingPortalSessionsApiPath(input.tenantId),
     {
       method: "POST",
-      body: JSON.stringify({ returnUrl: input.returnUrl }),
+      headers: {
+        "Idempotency-Key": input.idempotencyKey,
+      },
+      body: JSON.stringify({
+        flowType: input.flowType,
+      }),
     },
   );
 }
