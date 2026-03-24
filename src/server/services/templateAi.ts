@@ -983,6 +983,7 @@ export async function generateTemplateAiCandidates(
 
   let candidates: TemplateAiCandidate[] = [];
   let usageMetadata: GeminiUsageMetadata = {};
+  let lastPayload: unknown = null;
   let responseModel = openAiApiKey
     ? process.env.OPENAI_TEMPLATE_AI_MODEL?.trim() || OPENAI_TEMPLATE_AI_MODEL
     : DEFAULT_TEMPLATE_AI_MODEL;
@@ -1015,6 +1016,7 @@ export async function generateTemplateAiCandidates(
         openAiApiKey,
         geminiApiKey,
       );
+      lastPayload = payload;
       responseModel = model;
       usageMetadata = mergeUsageMetadata(
         usageMetadata,
@@ -1074,7 +1076,7 @@ export async function generateTemplateAiCandidates(
       provider: openAiApiKey ? "openai" : "gemini",
       model: responseModel,
       reason: error instanceof Error ? error.message : "unknown_error",
-      payload: buildInvalidAiPayloadDebugSnippet(payload),
+      payload: buildInvalidAiPayloadDebugSnippet(lastPayload),
     });
 
     throw createGeminiInvalidResponseError();
