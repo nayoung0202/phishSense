@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import type { TranslationKey, TranslationValue } from "@/lib/i18n";
 
+const INTERNAL_PRODUCTION_SUBSCRIPTION_EMAIL_PATTERN =
+  /^dev(\d{3})@evriz\.co\.kr$/i;
+
 export type SettingsSidebarItem = {
   href: Route;
   key: "general" | "members" | "subscription" | "credits" | "api-keys";
@@ -16,14 +19,27 @@ export type SettingsSidebarItem = {
   icon: LucideIcon;
 };
 
+function canAccessSubscriptionMenuInProduction(accountEmail: string | null) {
+  const normalizedEmail = accountEmail?.trim().toLowerCase() ?? "";
+  const match = INTERNAL_PRODUCTION_SUBSCRIPTION_EMAIL_PATTERN.exec(normalizedEmail);
+
+  if (!match?.[1]) {
+    return false;
+  }
+
+  const accountNumber = Number(match[1]);
+  return Number.isInteger(accountNumber) && accountNumber >= 1 && accountNumber <= 999;
+}
+
 export function getSettingsSidebarItems(options: {
   t: (key: TranslationKey, values?: Record<string, TranslationValue>) => string;
   role: string | null;
   isLoading: boolean;
   billingUiEnabled: boolean;
   byokUiEnabled: boolean;
+  accountEmail: string | null;
 }): SettingsSidebarItem[] {
-  const { t, role, isLoading, billingUiEnabled, byokUiEnabled } = options;
+  const { t, role, isLoading, billingUiEnabled, byokUiEnabled, accountEmail } = options;
   const canManageBilling = isLoading || role === "OWNER";
   const canViewCredits = isLoading || role === "OWNER" || role === "ADMIN";
   const canManageAiKeys = isLoading || role === "OWNER";
@@ -62,7 +78,15 @@ export function getSettingsSidebarItems(options: {
 
   return items.filter((item) => {
     if (item.key === "subscription") {
-      return billingUiEnabled && canManageBilling;
+      if (!billingUiEnabled || !canManageBilling) {
+        return false;
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        return true;
+      }
+
+      return canAccessSubscriptionMenuInProduction(accountEmail);
     }
 
     if (item.key === "credits") {

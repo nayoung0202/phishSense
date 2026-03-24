@@ -27,6 +27,7 @@ import {
 import { SidebarAccountCard } from "@/components/SidebarAccountCard";
 import { useFeatureFlags } from "@/components/FeatureFlagProvider";
 import { useI18n } from "@/components/I18nProvider";
+import { useAuthSession } from "@/hooks/useAuthSession";
 import { useSettingsTenant } from "@/features/settings/useSettingsTenant";
 import { getSettingsSidebarItems } from "@/features/settings/navigation";
 import type { TranslationKey } from "@/lib/i18n";
@@ -77,6 +78,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { settingsV2Enabled, billingUiEnabled, byokUiEnabled } = useFeatureFlags();
   const { t } = useI18n();
+  const { data: authSession } = useAuthSession();
   const { membership, isLoading } = useSettingsTenant();
   const localizedWorkspaceMenuItems = workspaceMenuItems.map((item) => ({
     ...item,
@@ -91,7 +93,8 @@ export function AppSidebar() {
         role: membership?.role ?? null,
         isLoading,
         billingUiEnabled,
-      byokUiEnabled,
+        byokUiEnabled,
+        accountEmail: authSession?.user?.email ?? null,
       })
     : localizedWorkspaceMenuItems;
   const isMenuActive = (url: Route) =>

@@ -68,6 +68,7 @@
 - Business 셀프서브 결제는 Stripe test mode Checkout을 사용한다.
 - Stripe secret, webhook secret, 운영 결제 키는 제품 저장소에 두지 않는다.
 - 제품은 플랫폼이 돌려준 Checkout / Portal URL로만 리다이렉트한다.
+- 운영 환경의 설정 사이드바에서는 `dev001@evriz.co.kr`부터 `dev999@evriz.co.kr`까지의 계정에만 `구독` 메뉴를 노출한다.
 
 ### 크래딧/BYOK
 

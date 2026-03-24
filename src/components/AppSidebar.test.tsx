@@ -14,6 +14,10 @@ const settingsTenantMock = vi.hoisted(() => ({
   useSettingsTenant: vi.fn(),
 }));
 
+const authSessionMock = vi.hoisted(() => ({
+  useAuthSession: vi.fn(),
+}));
+
 vi.mock("next/navigation", () => ({
   usePathname: () => pathnameMock.value,
 }));
@@ -32,6 +36,10 @@ vi.mock("@/features/settings/useSettingsTenant", () => ({
   useSettingsTenant: settingsTenantMock.useSettingsTenant,
 }));
 
+vi.mock("@/hooks/useAuthSession", () => ({
+  useAuthSession: authSessionMock.useAuthSession,
+}));
+
 vi.mock("@/hooks/use-mobile", () => ({
   useIsMobile: () => false,
 }));
@@ -44,6 +52,7 @@ import { AppSidebar } from "./AppSidebar";
 
 describe("AppSidebar", () => {
   beforeEach(() => {
+    process.env.NODE_ENV = "test";
     pathnameMock.value = "/";
     featureFlagsMock.useFeatureFlags.mockReturnValue({
       settingsV2Enabled: true,
@@ -54,6 +63,16 @@ describe("AppSidebar", () => {
     settingsTenantMock.useSettingsTenant.mockReturnValue({
       membership: { tenantId: "tenant-1", role: "OWNER", name: "Acme" },
       isLoading: false,
+    });
+    authSessionMock.useAuthSession.mockReturnValue({
+      data: {
+        authenticated: true,
+        user: {
+          sub: "user-1",
+          email: "owner@example.com",
+          name: "Owner",
+        },
+      },
     });
   });
 
@@ -69,6 +88,7 @@ describe("AppSidebar", () => {
     expect(screen.getByRole("link", { name: "common.back" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: /settings.general/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /settings.members/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /settings.subscription/i })).toBeInTheDocument();
     expect(screen.queryByText("nav.workspace")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /nav.projects/i })).not.toBeInTheDocument();
   });
@@ -91,6 +111,52 @@ describe("AppSidebar", () => {
     expect(screen.queryByRole("link", { name: /settings.subscription/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /settings.credits/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /settings.apiKeys/i })).not.toBeInTheDocument();
+  });
+
+  it("운영에서는 허용된 dev 계정만 구독 메뉴를 본다", () => {
+    process.env.NODE_ENV = "production";
+    pathnameMock.value = "/settings/subscription";
+    authSessionMock.useAuthSession.mockReturnValue({
+      data: {
+        authenticated: true,
+        user: {
+          sub: "user-1",
+          email: "dev999@evriz.co.kr",
+          name: "Owner",
+        },
+      },
+    });
+
+    render(
+      <SidebarProvider>
+        <AppSidebar />
+      </SidebarProvider>,
+    );
+
+    expect(screen.getByRole("link", { name: /settings.subscription/i })).toBeInTheDocument();
+  });
+
+  it("운영에서는 허용 범위 밖 계정에 구독 메뉴를 숨긴다", () => {
+    process.env.NODE_ENV = "production";
+    pathnameMock.value = "/settings/general";
+    authSessionMock.useAuthSession.mockReturnValue({
+      data: {
+        authenticated: true,
+        user: {
+          sub: "user-1",
+          email: "dev000@evriz.co.kr",
+          name: "Owner",
+        },
+      },
+    });
+
+    render(
+      <SidebarProvider>
+        <AppSidebar />
+      </SidebarProvider>,
+    );
+
+    expect(screen.queryByRole("link", { name: /settings.subscription/i })).not.toBeInTheDocument();
   });
 
   it("일반 경로에서는 기존 앱 메뉴를 유지한다", () => {
