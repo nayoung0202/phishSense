@@ -145,6 +145,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
       formData.set("tone", tone);
       formData.set("difficulty", difficulty);
       formData.set("prompt", prompt);
+      formData.set("usageContext", "standard");
       formData.set("generateCount", String(4 - preservedCandidates.length));
       formData.set(
         "preservedCandidates",

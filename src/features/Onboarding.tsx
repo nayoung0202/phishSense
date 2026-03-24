@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/components/I18nProvider";
 
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
 const ENCODED_SLASH_PATTERN = /%2f/i;
@@ -159,13 +160,16 @@ const statusMessageMap: Record<PlatformContextResponse["status"], string> = {
   platform_unavailable: "서비스 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
 };
 
-const getStatusMessage = (status: PlatformContextResponse["status"]) =>
-  statusMessageMap[status] || "이용 상태를 확인해 주세요.";
+const getStatusMessage = (
+  t: (key: string) => string,
+  status: PlatformContextResponse["status"],
+) => t(statusMessageMap[status] || "이용 상태를 확인해 주세요.");
 
-const formatRoleLabel = (role: string) => roleLabelMap[role] ?? role;
+const formatRoleLabel = (t: (key: string) => string, role: string) =>
+  t(roleLabelMap[role] ?? role);
 
-const formatEntitlementStatus = (status: string) =>
-  entitlementStatusLabelMap[status] ?? status;
+const formatEntitlementStatus = (t: (key: string) => string, status: string) =>
+  t(entitlementStatusLabelMap[status] ?? status);
 
 const isProvisioningStatus = (status: PlatformContextResponse["status"]) =>
   status === "entitlement_pending";
@@ -192,6 +196,7 @@ export const normalizeReturnTo = (candidate: string | null) => {
 };
 
 export default function Onboarding() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const returnTo = normalizeReturnTo(searchParams.get("returnTo"));
@@ -269,7 +274,7 @@ export default function Onboarding() {
   if (contextQuery.isLoading) {
     return (
       <div className="rounded-lg border border-border bg-muted/40 p-6 text-center text-sm text-muted-foreground">
-        이용 상태를 확인하고 있습니다.
+        {t("이용 상태를 확인하고 있습니다.")}
       </div>
     );
   }
@@ -278,11 +283,11 @@ export default function Onboarding() {
     return (
       <div className="space-y-4">
         <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-          이용 상태를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+          {t("이용 상태를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.")}
         </div>
         <div className="flex justify-center">
           <Button variant="outline" onClick={() => void contextQuery.refetch()}>
-            다시 시도
+            {t("common.retry")}
           </Button>
         </div>
       </div>
@@ -291,7 +296,7 @@ export default function Onboarding() {
 
   const data = contextQuery.data;
   const tenantOptions = data.tenants ?? [];
-  const message = getStatusMessage(data.status);
+  const message = getStatusMessage(t, data.status);
   const trimmedTenantName = tenantName.trim();
   const isMutating = createTenantMutation.isPending || selectTenantMutation.isPending;
   const showProvisioningPanel =
@@ -299,13 +304,13 @@ export default function Onboarding() {
   const showManualRefreshButton =
     provisioningTimedOut || data.status === "platform_unavailable";
   const provisioningTitle = createTenantMutation.isPending
-    ? "회사 또는 조직을 만드는 중입니다."
+    ? t("회사 또는 조직을 만드는 중입니다.")
     : selectTenantMutation.isPending
-      ? "회사 또는 조직을 연결하는 중입니다."
-      : "이용 권한을 연결하는 중입니다.";
+      ? t("회사 또는 조직을 연결하는 중입니다.")
+      : t("이용 권한을 연결하는 중입니다.");
   const provisioningDescription = provisioningTimedOut
-    ? "연결이 지연되고 있습니다. 잠시 후 상태를 다시 확인해 주세요."
-    : "이용 권한이 연결되면 자동으로 다음 화면으로 이동합니다.";
+    ? t("연결이 지연되고 있습니다. 잠시 후 상태를 다시 확인해 주세요.")
+    : t("이용 권한이 연결되면 자동으로 다음 화면으로 이동합니다.");
 
   return (
     <div className="space-y-6">
@@ -318,7 +323,7 @@ export default function Onboarding() {
           {showManualRefreshButton ? (
             <div className="mt-5 flex justify-center">
               <Button variant="outline" onClick={() => void contextQuery.refetch()}>
-                상태 다시 확인
+                {t("상태 다시 확인")}
               </Button>
             </div>
           ) : null}
@@ -326,39 +331,39 @@ export default function Onboarding() {
       ) : (
         <>
           <div className="rounded-lg border border-border bg-muted/40 p-5 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">현재 상태</p>
+            <p className="font-medium text-foreground">{t("현재 상태")}</p>
             <p className="mt-2">{message}</p>
           </div>
 
           {data.platformProduct ? (
             <div className="rounded-lg border border-border bg-card p-5 text-sm">
-              <p className="font-medium text-foreground">구독 정보</p>
+              <p className="font-medium text-foreground">{t("구독 정보")}</p>
               <div className="mt-3 space-y-1 text-muted-foreground">
-                <p>상태: {formatEntitlementStatus(data.platformProduct.status)}</p>
-                <p>플랜: {data.platformProduct.plan || "-"}</p>
-                <p>좌석 수: {data.platformProduct.seatLimit ?? "-"}</p>
-                <p>만료일: {data.platformProduct.expiresAt || "-"}</p>
+                <p>{t("상태")}: {formatEntitlementStatus(t, data.platformProduct.status)}</p>
+                <p>{t("플랜")}: {data.platformProduct.plan || "-"}</p>
+                <p>{t("좌석 수")}: {data.platformProduct.seatLimit ?? "-"}</p>
+                <p>{t("만료일")}: {data.platformProduct.expiresAt || "-"}</p>
               </div>
             </div>
           ) : null}
 
           {data.localEntitlement ? (
             <div className="rounded-lg border border-border bg-card p-5 text-sm">
-              <p className="font-medium text-foreground">이용 권한 정보</p>
+              <p className="font-medium text-foreground">{t("이용 권한 정보")}</p>
               <div className="mt-3 space-y-1 text-muted-foreground">
-                <p>상태: {formatEntitlementStatus(data.localEntitlement.status)}</p>
-                <p>플랜: {data.localEntitlement.planCode || "-"}</p>
-                <p>좌석 수: {data.localEntitlement.seatLimit ?? "-"}</p>
-                <p>만료일: {data.localEntitlement.expiresAt || "-"}</p>
+                <p>{t("상태")}: {formatEntitlementStatus(t, data.localEntitlement.status)}</p>
+                <p>{t("플랜")}: {data.localEntitlement.planCode || "-"}</p>
+                <p>{t("좌석 수")}: {data.localEntitlement.seatLimit ?? "-"}</p>
+                <p>{t("만료일")}: {data.localEntitlement.expiresAt || "-"}</p>
               </div>
             </div>
           ) : null}
 
           {data.status === "tenant_missing" ? (
             <div className="rounded-lg border border-border bg-card p-5">
-              <p className="font-medium text-foreground">회사 또는 조직 만들기</p>
+              <p className="font-medium text-foreground">{t("회사 또는 조직 만들기")}</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                사용할 회사 또는 조직 이름을 입력해 주세요. 생성 후 이용 권한을 다시 확인합니다.
+                {t("사용할 회사 또는 조직 이름을 입력해 주세요. 생성 후 이용 권한을 다시 확인합니다.")}
               </p>
               <form
                 className="mt-4 space-y-4"
@@ -371,13 +376,13 @@ export default function Onboarding() {
                 }}
               >
                 <div className="space-y-2">
-                  <Label htmlFor="tenant-name">회사 또는 조직 이름</Label>
+                  <Label htmlFor="tenant-name">{t("회사 또는 조직 이름")}</Label>
                   <Input
                     id="tenant-name"
                     name="tenantName"
                     value={tenantName}
                     onChange={(event) => setTenantName(event.target.value)}
-                    placeholder="예: EVRIZ"
+                    placeholder={t("예: EVRIZ")}
                     autoComplete="organization"
                     disabled={isSubmitting}
                   />
@@ -392,8 +397,8 @@ export default function Onboarding() {
                 <div className="flex justify-end">
                   <Button type="submit" disabled={!trimmedTenantName || isSubmitting}>
                     {createTenantMutation.isPending
-                      ? "회사 또는 조직을 만드는 중..."
-                      : "회사 또는 조직 만들기"}
+                      ? t("회사 또는 조직을 만드는 중...")
+                      : t("회사 또는 조직 만들기")}
                   </Button>
                 </div>
               </form>
@@ -402,9 +407,9 @@ export default function Onboarding() {
 
           {data.status === "tenant_selection_required" ? (
             <div className="rounded-lg border border-border bg-card p-5">
-              <p className="font-medium text-foreground">회사 또는 조직 선택</p>
+              <p className="font-medium text-foreground">{t("회사 또는 조직 선택")}</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                계속하려면 이용할 회사 또는 조직을 선택해 주세요.
+                {t("계속하려면 이용할 회사 또는 조직을 선택해 주세요.")}
               </p>
               <div className="mt-4 space-y-3">
                 {tenantOptions.map((tenant) => (
@@ -418,16 +423,16 @@ export default function Onboarding() {
                     <span>
                       <span className="block font-medium text-foreground">{tenant.name}</span>
                       <span className="block text-xs text-muted-foreground">
-                        {formatRoleLabel(tenant.role)}
+                        {formatRoleLabel(t, tenant.role)}
                       </span>
                     </span>
-                    <span className="text-xs text-muted-foreground">선택</span>
+                    <span className="text-xs text-muted-foreground">{t("선택")}</span>
                   </button>
                 ))}
               </div>
               {selectTenantMutation.isError ? (
                 <p className="mt-3 text-sm text-red-300">
-                  회사 또는 조직을 선택하지 못했습니다. 잠시 후 다시 시도해 주세요.
+                  {t("회사 또는 조직을 선택하지 못했습니다. 잠시 후 다시 시도해 주세요.")}
                 </p>
               ) : null}
             </div>
@@ -436,7 +441,7 @@ export default function Onboarding() {
           {showManualRefreshButton ? (
             <div className="flex justify-center">
               <Button variant="outline" onClick={() => void contextQuery.refetch()}>
-                상태 다시 확인
+                {t("상태 다시 확인")}
               </Button>
             </div>
           ) : null}

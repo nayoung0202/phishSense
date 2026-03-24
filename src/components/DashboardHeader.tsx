@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -10,9 +11,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User } from "lucide-react";
+import { LogOut, Settings2, User } from "lucide-react";
+import { useFeatureFlags } from "@/components/FeatureFlagProvider";
+import { useI18n } from "@/components/I18nProvider";
 
 export function DashboardHeader() {
+  const { settingsV2Enabled } = useFeatureFlags();
+  const { t } = useI18n();
+
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", {
@@ -20,35 +26,49 @@ export function DashboardHeader() {
         credentials: "include",
       });
     } finally {
-      window.location.href = "/";
+      window.location.href = "/login?reason=logout";
     }
   };
 
   return (
-    <header className="flex items-center justify-between p-4 border-b border-border">
+    <header className="flex items-center justify-between border-b border-border p-4">
       <SidebarTrigger data-testid="button-sidebar-toggle" />
-      
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 hover-elevate active-elevate-2 rounded-lg p-1" data-testid="button-user-menu">
-            <Avatar className="w-9 h-9">
-              <AvatarFallback className="bg-primary text-primary-foreground">관</AvatarFallback>
-            </Avatar>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel>관리자</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem data-testid="button-profile">
-            <User className="w-4 h-4 mr-2" />
-            프로필
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleLogout} data-testid="button-logout">
-            <LogOut className="w-4 h-4 mr-2" />
-            로그아웃
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+
+      {settingsV2Enabled ? <div aria-hidden="true" /> : (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="hover-elevate active-elevate-2 flex items-center gap-2 rounded-lg p-1"
+              data-testid="button-user-menu"
+            >
+              <Avatar className="h-9 w-9">
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  관
+                </AvatarFallback>
+              </Avatar>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel>{t("관리자")}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem data-testid="button-profile">
+              <User className="mr-2 h-4 w-4" />
+              {t("프로필")}
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings/general">
+                <Settings2 className="mr-2 h-4 w-4" />
+                설정
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout} data-testid="button-logout">
+              <LogOut className="mr-2 h-4 w-4" />
+              로그아웃
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </header>
   );
 }

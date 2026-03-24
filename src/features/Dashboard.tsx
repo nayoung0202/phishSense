@@ -27,7 +27,8 @@ import {
 } from "recharts";
 import Link from "next/link";
 import { type Project } from "@shared/schema";
-import { format } from "date-fns";
+import { useI18n } from "@/components/I18nProvider";
+import { getIntlLocale } from "@/lib/i18n";
 import {
   Users,
   BarChart3,
@@ -77,8 +78,6 @@ type QuarterComparisonItem = {
 const toMonthKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
-const toMonthLabel = (date: Date) => format(date, "yyyy년 MM월");
-const toMonthOptionLabel = (date: Date) => format(date, "MM월");
 const getMonthParts = (monthKey: string) => {
   const [year = "", month = ""] = monthKey.split("-");
   return { year, month };
@@ -106,9 +105,6 @@ const getQuarterNumber = (date: Date) => Math.floor(date.getMonth() / 3) + 1;
 
 const toQuarterKey = (date: Date) => `${date.getFullYear()}-Q${getQuarterNumber(date)}`;
 
-const toQuarterLabel = (date: Date) =>
-  `${date.getFullYear()}년 ${getQuarterNumber(date)}분기`;
-
 const toQuarterStartDate = (date: Date) =>
   new Date(date.getFullYear(), (getQuarterNumber(date) - 1) * 3, 1);
 
@@ -117,18 +113,40 @@ const RATE_DATA_KEYS = new Set(["openRate", "clickRate", "submitRate"]);
 export const formatPercent = (value: number | null) =>
   value === null ? "-" : `${Math.round(value)}%`;
 
-export const formatCount = (value: number | null | undefined) =>
-  Number(value ?? 0).toLocaleString();
+export const formatCount = (value: number | null | undefined, locale?: string) =>
+  Number(value ?? 0).toLocaleString(locale);
 
 export const isRateDataKey = (dataKey: unknown): dataKey is "openRate" | "clickRate" | "submitRate" =>
   typeof dataKey === "string" && RATE_DATA_KEYS.has(dataKey);
 
-const formatProjectLabel = (name: string | null | undefined) => name ?? "무제 프로젝트";
-
 export default function Dashboard() {
+  const { locale, t } = useI18n();
+  const intlLocale = getIntlLocale(locale);
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
+  const toMonthLabel = (date: Date) =>
+    new Intl.DateTimeFormat(intlLocale, {
+      year: "numeric",
+      month: "long",
+    }).format(date);
+  const toMonthOptionLabel = (date: Date) =>
+    new Intl.DateTimeFormat(intlLocale, {
+      month: "short",
+    }).format(date);
+  const toQuarterLabel = (date: Date) => {
+    const quarterNumber = getQuarterNumber(date);
+    if (locale === "en") {
+      return `Q${quarterNumber} ${date.getFullYear()}`;
+    }
+    return locale === "ja"
+      ? `${date.getFullYear()}年 第${quarterNumber}四半期`
+      : `${date.getFullYear()}년 ${quarterNumber}분기`;
+  };
+  const formatProjectLabel = (name: string | null | undefined) =>
+    name ?? t("무제 프로젝트");
+  const formatSummaryCount = (value: number | null | undefined) =>
+    formatCount(value, intlLocale);
 
   const projectsByQuarter = useMemo(() => {
     const map = new Map<string, Project[]>();
@@ -145,7 +163,7 @@ export default function Dashboard() {
       }
     });
     return map;
-  }, [projects]);
+  }, [intlLocale, projects]);
 
   const monthlySummaries = useMemo<MonthlySummary[]>(() => {
     if (!projects.length) return [];
@@ -196,7 +214,7 @@ export default function Dashboard() {
         };
       })
       .sort((a, b) => b.monthDate.getTime() - a.monthDate.getTime());
-  }, [projects]);
+  }, [locale, projects]);
 
   const quarterlySummaries = useMemo<QuarterlySummary[]>(() => {
     if (!projects.length) return [];
@@ -274,9 +292,14 @@ export default function Dashboard() {
         .sort((a, b) => b - a)
         .map((year) => ({
           value: String(year),
-          label: `${year}년`,
+          label:
+            locale === "en"
+              ? String(year)
+              : locale === "ja"
+                ? `${year}年`
+                : `${year}년`,
         })),
-    [quartersByYear],
+    [locale, quartersByYear],
   );
 
   const monthYearMap = useMemo(() => {
@@ -297,7 +320,7 @@ export default function Dashboard() {
       );
     });
     return map;
-  }, [monthlySummaries]);
+  }, [intlLocale, monthlySummaries]);
 
   const availableMonthKeys = useMemo(
     () =>
@@ -313,9 +336,14 @@ export default function Dashboard() {
         .sort((a, b) => b - a)
         .map((year) => ({
           value: String(year),
-          label: `${year}년`,
+          label:
+            locale === "en"
+              ? String(year)
+              : locale === "ja"
+                ? `${year}年`
+                : `${year}년`,
         })),
-    [monthYearMap],
+    [locale, monthYearMap],
   );
 
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(() => {
@@ -345,9 +373,14 @@ export default function Dashboard() {
     const quarters = quartersByYear.get(Number(selectedYear)) ?? [];
     return quarters.map((quarter) => ({
       value: String(quarter),
-      label: `${quarter}분기`,
+      label:
+        locale === "en"
+          ? `Q${quarter}`
+          : locale === "ja"
+            ? `第${quarter}四半期`
+            : `${quarter}분기`,
     }));
-  }, [quartersByYear, selectedYear]);
+  }, [locale, quartersByYear, selectedYear]);
 
   useEffect(() => {
     if (!availableMonthKeys.length) {
@@ -423,9 +456,9 @@ export default function Dashboard() {
       }
       const nameA = a.name ?? "";
       const nameB = b.name ?? "";
-      return nameA.localeCompare(nameB, "ko");
+      return nameA.localeCompare(nameB, intlLocale);
     });
-  }, [projectsByQuarter, selectedQuarterKey]);
+  }, [intlLocale, projectsByQuarter, selectedQuarterKey]);
 
   const quarterComparisonData = useMemo<QuarterComparisonItem[]>(() => {
     if (!selectedQuarterProjects.length) return [];
@@ -442,7 +475,7 @@ export default function Dashboard() {
         submitRate: rate(project.submitCount),
       };
     });
-  }, [selectedQuarterProjects]);
+  }, [selectedQuarterProjects, t]);
 
   const maxQuarterTarget = useMemo(() => {
     if (!quarterComparisonData.length) return 0;
@@ -480,16 +513,17 @@ export default function Dashboard() {
       <div className="p-6 space-y-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold mb-2">대시보드</h1>
+            <h1 className="text-4xl font-bold mb-2">{t("대시보드")}</h1>
             <p className="text-sm text-muted-foreground">
-              첫 훈련을 아직 시작하지 않았습니다. AI로 메일을 만들고 실제 메일을 직접 받아보며
-              집계까지 확인해 보세요.
+              {t(
+                "첫 훈련을 아직 시작하지 않았습니다. AI로 메일을 만들고 실제 메일을 직접 받아보며 집계까지 확인해 보세요.",
+              )}
             </p>
           </div>
           <Link href="/projects/new">
             <Button data-testid="button-new-project">
               <Plus className="mr-2 h-4 w-4" />
-              새 프로젝트
+              {t("새 프로젝트")}
             </Button>
           </Link>
         </div>
@@ -498,21 +532,22 @@ export default function Dashboard() {
           <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_280px]">
             <div className="space-y-4">
               <Badge variant="outline" className="border-sky-300 text-sky-700">
-                추천 시작 경로
+                {t("추천 시작 경로")}
               </Badge>
               <div className="space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight text-slate-950">
-                  첫 피싱 시뮬레이션 체험
+                  {t("첫 피싱 시뮬레이션 체험")}
                 </h2>
                 <p className="max-w-2xl text-sm text-slate-600">
-                  AI로 피싱 메일과 훈련 안내 페이지를 생성한 뒤, 내 이메일로 실제 프로젝트를
-                  발송하고 오픈, 클릭, 제출 집계를 프로젝트 상세에서 직접 확인할 수 있습니다.
+                  {t(
+                    "AI로 피싱 메일과 훈련 안내 페이지를 생성한 뒤, 내 이메일로 실제 프로젝트를 발송하고 오픈, 클릭, 제출 집계를 프로젝트 상세에서 직접 확인할 수 있습니다.",
+                  )}
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
                 <Link href="/projects/experience">
                   <Button size="lg" className="bg-slate-950 text-white hover:bg-slate-800">
-                    체험 시작하기
+                    {t("체험 시작하기")}
                   </Button>
                 </Link>
                 <Link href="/admin/smtp">
@@ -521,19 +556,19 @@ export default function Dashboard() {
                     variant="outline"
                     className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100"
                   >
-                    발송 설정 열기
+                    {t("발송 설정 열기")}
                   </Button>
                 </Link>
               </div>
             </div>
             <div className="rounded-2xl border border-slate-900/10 bg-slate-950 p-5 text-white shadow-sm">
-              <p className="text-sm font-semibold text-sky-100">체험 순서</p>
+              <p className="text-sm font-semibold text-sky-100">{t("체험 순서")}</p>
               <ol className="mt-3 space-y-3 text-sm text-slate-100">
-                <li>1. AI로 피싱 메일 생성</li>
-                <li>2. AI로 훈련 안내 페이지 생성</li>
-                <li>3. SMTP 연결 확인</li>
-                <li>4. 내 메일로 실제 발송</li>
-                <li>5. 프로젝트 상세에서 이벤트 확인</li>
+                <li>{t("1. AI로 피싱 메일 생성")}</li>
+                <li>{t("2. AI로 훈련 안내 페이지 생성")}</li>
+                <li>{t("3. SMTP 연결 확인")}</li>
+                <li>{t("4. 내 메일로 실제 발송")}</li>
+                <li>{t("5. 프로젝트 상세에서 이벤트 확인")}</li>
               </ol>
             </div>
           </div>
@@ -546,19 +581,19 @@ export default function Dashboard() {
     <div className="p-6 space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold mb-2">대시보드</h1>
+          <h1 className="text-4xl font-bold mb-2">{t("대시보드")}</h1>
         </div>
         <Link href="/projects/new">
           <Button data-testid="button-new-project">
             <Plus className="mr-2 h-4 w-4" />
-            새 프로젝트
+            {t("새 프로젝트")}
           </Button>
         </Link>
       </div>
 
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h2 className="text-2xl font-semibold">월간 훈련 현황</h2>
+          <h2 className="text-2xl font-semibold">{t("월간 훈련 현황")}</h2>
           {monthYearOptions.length > 0 && (
             <div className="flex items-center gap-1.5">
               <Button
@@ -575,7 +610,7 @@ export default function Dashboard() {
                 onValueChange={handleYearChange}
               >
                 <SelectTrigger className="w-[100px]" data-testid="select-dashboard-month-year">
-                  <SelectValue placeholder="연도 선택" />
+                  <SelectValue placeholder={t("연도 선택")} />
                 </SelectTrigger>
                 <SelectContent>
                   {monthYearOptions.map((option) => (
@@ -591,7 +626,7 @@ export default function Dashboard() {
                 disabled={monthOptions.length === 0}
               >
                 <SelectTrigger className="w-[85px]" data-testid="select-dashboard-month">
-                  <SelectValue placeholder="월 선택" />
+                  <SelectValue placeholder={t("월 선택")} />
                 </SelectTrigger>
                 <SelectContent>
                   {monthOptions.map((option) => (
@@ -621,33 +656,57 @@ export default function Dashboard() {
           ) : selectedSummary ? (
             <>
               <StatCard
-                title="발송 수"
-                value={selectedSummary.targetCount.toLocaleString()}
+                title={t("발송 수")}
+                value={formatSummaryCount(selectedSummary.targetCount)}
                 icon={Users}
-                description={`${selectedSummary.monthLabel} 기준`}
+                description={
+                  locale === "en"
+                    ? `${selectedSummary.monthLabel}`
+                    : locale === "ja"
+                      ? `${selectedSummary.monthLabel}時点`
+                      : `${selectedSummary.monthLabel} 기준`
+                }
               />
               <StatCard
-                title="오픈율"
+                title={t("오픈율")}
                 value={formatPercent(selectedSummary.openRate)}
                 icon={BarChart3}
-                description={`${selectedSummary.openCount.toLocaleString()}명 오픈`}
+                description={
+                  locale === "en"
+                    ? `${formatSummaryCount(selectedSummary.openCount)} opened`
+                    : locale === "ja"
+                      ? `${formatSummaryCount(selectedSummary.openCount)}名 開封`
+                      : `${formatSummaryCount(selectedSummary.openCount)}명 오픈`
+                }
               />
               <StatCard
-                title="클릭율"
+                title={t("클릭율")}
                 value={formatPercent(selectedSummary.clickRate)}
                 icon={TrendingUp}
-                description={`${selectedSummary.clickCount.toLocaleString()}명 클릭`}
+                description={
+                  locale === "en"
+                    ? `${formatSummaryCount(selectedSummary.clickCount)} clicked`
+                    : locale === "ja"
+                      ? `${formatSummaryCount(selectedSummary.clickCount)}名 クリック`
+                      : `${formatSummaryCount(selectedSummary.clickCount)}명 클릭`
+                }
               />
               <StatCard
-                title="제출율"
+                title={t("제출율")}
                 value={formatPercent(selectedSummary.submitRate)}
                 icon={Shield}
-                description={`${selectedSummary.submitCount.toLocaleString()}명 제출`}
+                description={
+                  locale === "en"
+                    ? `${formatSummaryCount(selectedSummary.submitCount)} submitted`
+                    : locale === "ja"
+                      ? `${formatSummaryCount(selectedSummary.submitCount)}名 提出`
+                      : `${formatSummaryCount(selectedSummary.submitCount)}명 제출`
+                }
               />
             </>
           ) : (
             <Card className="col-span-full p-6 text-center text-muted-foreground">
-              통계 데이터를 불러올 수 없습니다.
+              {t("통계 데이터를 불러올 수 없습니다.")}
             </Card>
           )}
         </div>
@@ -658,15 +717,19 @@ export default function Dashboard() {
           <div>
             <h2 className="text-2xl font-semibold flex items-center gap-2">
               <LineChart className="w-5 h-5 text-primary" />
-              모의훈련 현황 비교
+              {t("모의훈련 현황 비교")}
             </h2>
             <p className="text-sm text-muted-foreground">
-              연도와 분기를 선택해 해당 기간의 프로젝트 성과를 비교하세요.
+              {t("연도와 분기를 선택해 해당 기간의 프로젝트 성과를 비교하세요.")}
             </p>
             <p className="text-xs text-muted-foreground">
               {selectedQuarterKey
-                ? `${selectedYear ?? "-"}년 ${selectedQuarterNumber ?? "-"}분기 총 ${selectedQuarterProjects.length.toLocaleString()}개 프로젝트`
-                : "선택 가능한 분기가 없습니다."}
+                ? locale === "en"
+                  ? `${selectedYear ?? "-"} Q${selectedQuarterNumber ?? "-"} · ${formatSummaryCount(selectedQuarterProjects.length)} projects`
+                  : locale === "ja"
+                    ? `${selectedYear ?? "-"}年 第${selectedQuarterNumber ?? "-"}四半期 合計${formatSummaryCount(selectedQuarterProjects.length)}件`
+                    : `${selectedYear ?? "-"}년 ${selectedQuarterNumber ?? "-"}분기 총 ${formatSummaryCount(selectedQuarterProjects.length)}개 프로젝트`
+                : t("선택 가능한 분기가 없습니다.")}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -676,7 +739,7 @@ export default function Dashboard() {
                 onValueChange={(value) => setSelectedYear(value)}
               >
                 <SelectTrigger className="w-[160px]" data-testid="select-dashboard-year">
-                  <SelectValue placeholder="연도 선택" />
+                  <SelectValue placeholder={t("연도 선택")} />
                 </SelectTrigger>
                 <SelectContent>
                   {yearOptions.map((option) => (
@@ -693,7 +756,7 @@ export default function Dashboard() {
                 onValueChange={(value) => setSelectedQuarterNumber(value)}
               >
                 <SelectTrigger className="w-[150px]" data-testid="select-dashboard-quarter">
-                  <SelectValue placeholder="분기 선택" />
+                  <SelectValue placeholder={t("분기 선택")} />
                 </SelectTrigger>
                 <SelectContent>
                   {quarterOptions.map((option) => (
@@ -723,7 +786,7 @@ export default function Dashboard() {
                 <YAxis
                   yAxisId="count"
                   stroke="hsl(var(--muted-foreground))"
-                  tickFormatter={(value) => formatCount(Number(value))}
+                  tickFormatter={(value) => formatCount(Number(value), intlLocale)}
                   width={60}
                   domain={[0, Math.max(maxQuarterTarget, 10)]}
                 />
@@ -750,14 +813,14 @@ export default function Dashboard() {
                     if (isRateDataKey(item?.dataKey)) {
                       return [formatPercent(Number(value)), label];
                     }
-                    return [formatCount(Number(value)), label];
+                    return [formatCount(Number(value), intlLocale), label];
                   }}
                 />
                 <Legend />
                 <Bar
                   yAxisId="count"
                   dataKey="targetCount"
-                  name="발송 수"
+                  name={t("발송 수")}
                   fill="hsl(var(--primary))"
                   radius={[4, 4, 0, 0]}
                 />
@@ -765,7 +828,7 @@ export default function Dashboard() {
                   yAxisId="rate"
                   type="linear"
                   dataKey="openRate"
-                  name="오픈율"
+                  name={t("오픈율")}
                   stroke="hsl(var(--chart-2))"
                   strokeWidth={2}
                   dot={{ r: 3 }}
@@ -774,7 +837,7 @@ export default function Dashboard() {
                   yAxisId="rate"
                   type="linear"
                   dataKey="clickRate"
-                  name="클릭율"
+                  name={t("클릭율")}
                   stroke="hsl(var(--chart-3))"
                   strokeWidth={2}
                   dot={{ r: 3 }}
@@ -783,7 +846,7 @@ export default function Dashboard() {
                   yAxisId="rate"
                   type="linear"
                   dataKey="submitRate"
-                  name="제출율"
+                  name={t("제출율")}
                   stroke="hsl(var(--chart-4))"
                   strokeWidth={2}
                   dot={{ r: 3 }}
@@ -792,7 +855,7 @@ export default function Dashboard() {
             </ResponsiveContainer>
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              선택한 분기에 비교할 프로젝트가 없습니다.
+              {t("선택한 분기에 비교할 프로젝트가 없습니다.")}
             </div>
           )}
         </div>

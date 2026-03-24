@@ -1,4 +1,5 @@
 import { useToast } from "@/hooks/use-toast"
+import { useI18n } from "@/components/I18nProvider"
 import {
   Toast,
   ToastClose,
@@ -10,6 +11,7 @@ import {
 
 export function Toaster() {
   const { toasts } = useToast()
+  const { t } = useI18n()
 
   return (
     <ToastProvider>
@@ -17,9 +19,11 @@ export function Toaster() {
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
-              {title && <ToastTitle>{title}</ToastTitle>}
+              {title && <ToastTitle>{typeof title === "string" ? t(title) : title}</ToastTitle>}
               {description && (
-                <ToastDescription>{description}</ToastDescription>
+                <ToastDescription>
+                  {typeof description === "string" ? t(description) : description}
+                </ToastDescription>
               )}
             </div>
             {action}

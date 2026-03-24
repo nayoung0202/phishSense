@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import {
   templateAiGenerateResponseSchema,
@@ -11,6 +11,10 @@ import {
   generateTemplateAiCandidates,
   TemplateAiServiceError,
 } from "@/server/services/templateAi";
+import {
+  AiCreditGateError,
+  executeWithAiCreditGate,
+} from "@/server/platform/aiCredits";
 
 class TemplateAiRequestParseError extends Error {
   status: number;
@@ -112,10 +116,15 @@ const parseTemplateAiRequest = async (request: Request): Promise<TemplateAiReque
   });
 };
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const payload = await parseTemplateAiRequest(request);
-    const result = await generateTemplateAiCandidates(payload);
+    const result = await executeWithAiCreditGate({
+      request,
+      kind: "template",
+      usageContext: payload.usageContext,
+      action: () => generateTemplateAiCandidates(payload),
+    });
     return NextResponse.json(templateAiGenerateResponseSchema.parse(result));
   } catch (error) {
     if (error instanceof ZodError) {
@@ -138,6 +147,15 @@ export async function POST(request: Request) {
           error: error.message,
           code: error.code,
           retryable: error.retryable,
+        },
+        { status: error.status },
+      );
+    }
+
+    if (error instanceof AiCreditGateError) {
+      return NextResponse.json(
+        {
+          error: error.message,
         },
         { status: error.status },
       );

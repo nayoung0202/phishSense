@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generateTemplateAiCandidatesMock = vi.hoisted(() => vi.fn());
+const executeWithAiCreditGateMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/services/templateAi", async () => {
   const actual = await vi.importActual<typeof import("@/server/services/templateAi")>(
@@ -13,12 +14,25 @@ vi.mock("@/server/services/templateAi", async () => {
   };
 });
 
+vi.mock("@/server/platform/aiCredits", async () => {
+  const actual = await vi.importActual<typeof import("@/server/platform/aiCredits")>(
+    "@/server/platform/aiCredits",
+  );
+
+  return {
+    ...actual,
+    executeWithAiCreditGate: executeWithAiCreditGateMock,
+  };
+});
+
 import { TemplateAiServiceError } from "@/server/services/templateAi";
 import { POST } from "./route";
 
 describe("POST /api/templates/ai-generate", () => {
   beforeEach(() => {
     generateTemplateAiCandidatesMock.mockReset();
+    executeWithAiCreditGateMock.mockReset();
+    executeWithAiCreditGateMock.mockImplementation(async ({ action }) => action());
   });
 
   it("name 없이 생성된 후보를 반환한다", async () => {
@@ -66,6 +80,7 @@ describe("POST /api/templates/ai-generate", () => {
         topic: "shipping",
         customTopic: "",
         preservedCandidates: [{ id: "keep-1", subject: "기존 후보 제목" }],
+        usageContext: "standard",
       }),
     );
   });
@@ -111,6 +126,48 @@ describe("POST /api/templates/ai-generate", () => {
       expect.objectContaining({
         topic: "other",
         customTopic: "사내 행사 안내",
+        usageContext: "standard",
+      }),
+    );
+  });
+
+  it("usageContext를 credit gate와 서비스에 전달한다", async () => {
+    generateTemplateAiCandidatesMock.mockResolvedValue({
+      candidates: [
+        {
+          id: "candidate-1",
+          subject: "체험하기 템플릿",
+          body: '<a href="{{LANDING_URL}}">확인</a>',
+          maliciousPageContent:
+            '<form action="{{TRAINING_URL}}"><button type="submit">제출</button></form>',
+          summary: "체험하기 후보",
+        },
+      ],
+    });
+
+    await POST(
+      new Request("http://localhost/api/templates/ai-generate", {
+        method: "POST",
+        body: JSON.stringify({
+          topic: "shipping",
+          customTopic: "",
+          tone: "formal",
+          difficulty: "easy",
+          prompt: "",
+          usageContext: "experience",
+        }),
+      }) as never,
+    );
+
+    expect(executeWithAiCreditGateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "template",
+        usageContext: "experience",
+      }),
+    );
+    expect(generateTemplateAiCandidatesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usageContext: "experience",
       }),
     );
   });

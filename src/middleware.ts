@@ -10,6 +10,7 @@ const PROTECTED_PAGE_PREFIXES = [
   "/targets",
   "/templates",
   "/training-pages",
+  "/settings",
   "/admin",
 ];
 
@@ -22,10 +23,20 @@ const PUBLIC_API_ROUTES = [
   },
 ];
 
-const SESSION_API_ROUTES = [
+type ApiRouteMatcher = {
+  method: string;
+  pathname?: string;
+  pathnamePattern?: RegExp;
+};
+
+const SESSION_API_ROUTES: ApiRouteMatcher[] = [
   {
     method: "POST",
     pathname: "/api/platform/tenants",
+  },
+  {
+    method: "POST",
+    pathnamePattern: /^\/api\/platform\/tenant-invites\/[^/]+\/accept$/,
   },
 ];
 
@@ -56,7 +67,10 @@ const isPublicApiRoute = (pathname: string, method: string) =>
 
 const isSessionApiRoute = (pathname: string, method: string) =>
   SESSION_API_ROUTES.some(
-    (route) => route.method === method && route.pathname === pathname,
+    (route) =>
+      route.method === method &&
+      ((route.pathname && route.pathname === pathname) ||
+        (route.pathnamePattern && route.pathnamePattern.test(pathname))),
   );
 
 type RouteAccessLevel = "public" | "session" | "ready" | null;
@@ -209,6 +223,7 @@ export const config = {
     "/targets/:path*",
     "/templates/:path*",
     "/training-pages/:path*",
+    "/settings/:path*",
     "/admin/:path*",
     "/api/:path*",
   ],

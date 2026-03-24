@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import {
   trainingPageAiGenerateResponseSchema,
@@ -13,6 +13,10 @@ import {
   generateTrainingPageAiCandidates,
   TrainingPageAiServiceError,
 } from "@/server/services/trainingPageAi";
+import {
+  AiCreditGateError,
+  executeWithAiCreditGate,
+} from "@/server/platform/aiCredits";
 
 class TrainingPageAiRequestParseError extends Error {
   status: number;
@@ -124,10 +128,15 @@ const parseTrainingPageAiRequest = async (request: Request): Promise<TrainingPag
   });
 };
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const payload = await parseTrainingPageAiRequest(request);
-    const result = await generateTrainingPageAiCandidates(payload);
+    const result = await executeWithAiCreditGate({
+      request,
+      kind: "training-page",
+      usageContext: payload.usageContext,
+      action: () => generateTrainingPageAiCandidates(payload),
+    });
     return NextResponse.json(trainingPageAiGenerateResponseSchema.parse(result));
   } catch (error) {
     if (error instanceof ZodError) {
@@ -150,6 +159,15 @@ export async function POST(request: Request) {
           error: error.message,
           code: error.code,
           retryable: error.retryable,
+        },
+        { status: error.status },
+      );
+    }
+
+    if (error instanceof AiCreditGateError) {
+      return NextResponse.json(
+        {
+          error: error.message,
         },
         { status: error.status },
       );

@@ -31,6 +31,7 @@ export const trainingPageAiRequestSchema = z
       )
       .max(3)
       .default([]),
+    usageContext: z.literal("standard").default("standard"),
     referenceAttachment: templateAiReferenceAttachmentSchema.optional(),
   });
 

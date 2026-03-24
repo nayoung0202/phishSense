@@ -9,7 +9,6 @@ import { Plus, Search, Edit, Trash2, FileText, Eye, Sun, Moon, Sparkles } from "
 import Link from "next/link";
 import { type TrainingPage } from "@shared/schema";
 import { format } from "date-fns";
-import { ko } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Dialog,
@@ -20,10 +19,14 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { SafeText } from "@/components/security/SafeText";
+import { useI18n } from "@/components/I18nProvider";
+import { getDateFnsLocale } from "@/lib/i18n";
 import { TrainingPageAiGenerateDialog } from "@/components/TrainingPageAiGenerateDialog";
 import { TemplatePreviewFrame } from "@/components/template-preview-frame";
 
 export default function TrainingPages() {
+  const { t, locale } = useI18n();
+  const dateFnsLocale = getDateFnsLocale(locale);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [previewTheme, setPreviewTheme] = useState<"light" | "dark">("dark");
@@ -48,13 +51,13 @@ export default function TrainingPages() {
   );
 
   const handleDelete = (id: string) => {
-    if (confirm('정말 삭제하시겠습니까?')) {
+    if (confirm(t("정말 삭제하시겠습니까?"))) {
       deleteMutation.mutate(id);
     }
   };
 
   const formatDate = (date: Date | string) => {
-    return format(new Date(date), 'PPp', { locale: ko });
+    return format(new Date(date), "PPp", { locale: dateFnsLocale });
   };
 
   const previewSurfaceClass =
@@ -72,7 +75,7 @@ export default function TrainingPages() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold mb-2">훈련 안내 페이지 관리</h1>
+          <h1 className="text-4xl font-bold mb-2">{t("훈련 안내 페이지 관리")}</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -82,12 +85,12 @@ export default function TrainingPages() {
             onClick={() => setIsAiGenerateOpen(true)}
           >
             <Sparkles className="w-4 h-4 mr-2" />
-            AI 훈련안내페이지 생성
+            {t("AI 훈련안내페이지 생성")}
           </Button>
           <Link href="/training-pages/new">
             <Button data-testid="button-new-page">
               <Plus className="w-4 h-4 mr-2" />
-              새 안내 페이지 생성
+              {t("새 안내 페이지 생성")}
             </Button>
           </Link>
         </div>
@@ -97,7 +100,7 @@ export default function TrainingPages() {
         <div className="mb-6 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="페이지명으로 검색..."
+            placeholder={t("페이지명으로 검색...")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -106,10 +109,10 @@ export default function TrainingPages() {
         </div>
 
         {isLoading ? (
-          <div className="text-center py-12">로딩 중...</div>
+          <div className="text-center py-12">{t("common.loading")}</div>
         ) : filteredPages.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            안내 페이지가 없습니다
+            {t("안내 페이지가 없습니다")}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -125,21 +128,21 @@ export default function TrainingPages() {
                         <SafeText value={page.name} fallback="-" />
                       </h3>
                       <p className="text-sm text-muted-foreground line-clamp-2">
-                        <SafeText value={page.description} fallback="설명 없음" />
+                        <SafeText value={page.description} fallback={t("설명 없음")} />
                       </p>
                     </div>
                   </div>
 
                   <div className="pt-4 border-t border-border">
                     <p className="text-xs text-muted-foreground mb-3">
-                      최근 수정: {formatDate(page.updatedAt!)}
+                      {t("최근 수정:")} {formatDate(page.updatedAt!)}
                     </p>
                     <div className="flex items-center gap-2">
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button variant="outline" size="sm" data-testid={`button-preview-${page.id}`}>
                             <Eye className="w-4 h-4 mr-2" />
-                            미리보기
+                            {t("미리보기")}
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-3xl">
@@ -149,11 +152,11 @@ export default function TrainingPages() {
                                 <SafeText value={page.name} fallback="-" />
                               </DialogTitle>
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <span className={previewTheme === "light" ? "text-foreground font-semibold" : ""}>라이트</span>
+                                <span className={previewTheme === "light" ? "text-foreground font-semibold" : ""}>{t("라이트")}</span>
                                 <Switch
                                   checked={previewTheme === "dark"}
                                   onCheckedChange={(checked) => setPreviewTheme(checked ? "dark" : "light")}
-                                  aria-label="미리보기 테마 전환"
+                                  aria-label={t("미리보기 테마 전환")}
                                   thumbIcon={
                                     previewTheme === "dark" ? (
                                       <Moon className="h-3 w-3" />
@@ -162,7 +165,7 @@ export default function TrainingPages() {
                                     )
                                   }
                                 />
-                                <span className={previewTheme === "dark" ? "text-foreground font-semibold" : ""}>다크</span>
+                                <span className={previewTheme === "dark" ? "text-foreground font-semibold" : ""}>{t("다크")}</span>
                               </div>
                             </div>
                           </DialogHeader>

@@ -186,6 +186,7 @@ export default function ProjectExperienceWizard() {
         tone: templateTone,
         difficulty: templateDifficulty,
         prompt: templatePrompt,
+        usageContext: "experience",
         generateCount: 4,
         preservedCandidates: [],
       };
@@ -247,6 +248,7 @@ export default function ProjectExperienceWizard() {
       const payload = {
         tone: trainingTone,
         prompt: trainingPrompt,
+        usageContext: "standard",
         generateCount: 4,
         preservedCandidates: [],
       };

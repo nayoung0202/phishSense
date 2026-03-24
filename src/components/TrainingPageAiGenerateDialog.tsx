@@ -117,6 +117,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
       const formData = new FormData();
       formData.set("tone", tone);
       formData.set("prompt", prompt);
+      formData.set("usageContext", "standard");
       formData.set("generateCount", String(4 - preservedCandidates.length));
       formData.set(
         "preservedCandidates",

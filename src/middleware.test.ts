@@ -73,6 +73,16 @@ describe("middleware 인증 및 플랫폼 게이트", () => {
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 
+  it("settings 페이지도 보호 경로로 처리한다", async () => {
+    const request = new NextRequest("http://localhost/settings/general");
+    const response = await middleware(request);
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://app.phishsense.cloud/login?returnTo=%2Fsettings%2Fgeneral",
+    );
+  });
+
   it("플랫폼 온보딩이 필요하면 보호 페이지를 onboarding으로 리다이렉트한다", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
@@ -144,10 +154,45 @@ describe("middleware 인증 및 플랫폼 게이트", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("tenant_missing 상태에서도 초대 수락 API는 통과시킨다", async () => {
+    const request = new NextRequest(
+      "http://localhost/api/platform/tenant-invites/invite-token-1/accept",
+      {
+        method: "POST",
+        headers: {
+          cookie: "ps_session=session-1",
+        },
+      },
+    );
+
+    const response = await middleware(request);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("tenant 생성 API도 무세션 요청이면 401을 반환한다", async () => {
     const request = new NextRequest("http://localhost/api/platform/tenants", {
       method: "POST",
     });
+
+    const response = await middleware(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({
+      error: "Unauthorized",
+    });
+  });
+
+  it("초대 수락 API도 무세션 요청이면 401을 반환한다", async () => {
+    const request = new NextRequest(
+      "http://localhost/api/platform/tenant-invites/invite-token-1/accept",
+      {
+        method: "POST",
+      },
+    );
 
     const response = await middleware(request);
     const body = await response.json();

@@ -171,6 +171,7 @@ export const templateAiRequestSchema = z
       )
       .max(3)
       .default([]),
+    usageContext: z.enum(["standard", "experience"]).default("standard"),
     mailBodyReferenceAttachment: templateAiReferenceAttachmentSchema.optional(),
     maliciousPageReferenceAttachment: templateAiReferenceAttachmentSchema.optional(),
   })

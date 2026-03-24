@@ -123,6 +123,46 @@ const getConfiguredPlatformAudience = () => {
   }
 };
 
+const fetchPlatformMeBestEffort = async (options: {
+  auth: AuthenticatedContext;
+  tenantId?: string | null;
+}) => {
+  if (!getConfiguredPlatformAudience() || !options.auth.accessToken) {
+    return null;
+  }
+
+  try {
+    return await fetchPlatformMe({
+      accessToken: options.auth.accessToken,
+      tenantId: options.tenantId,
+    });
+  } catch {
+    return null;
+  }
+};
+
+const resolveEntitlementShortcutResult = async (options: {
+  status: PlatformContextStatus;
+  auth: AuthenticatedContext;
+  tenantId: string;
+  localEntitlement: PlatformEntitlementRow;
+}) => {
+  const platformResponse = await fetchPlatformMeBestEffort({
+    auth: options.auth,
+    tenantId: options.tenantId,
+  });
+  const resolvedTenantId = platformResponse?.currentTenantId ?? options.tenantId;
+
+  return toResult(options.status, {
+    tenantId: resolvedTenantId,
+    currentTenantId: resolvedTenantId,
+    tenants: platformResponse?.tenants,
+    products: platformResponse?.products,
+    platformProduct: getPlatformProduct(platformResponse, resolvedTenantId),
+    localEntitlement: options.localEntitlement,
+  });
+};
+
 export async function resolvePlatformContext(options: {
   auth: AuthenticatedContext;
   preferredTenantId?: string | null;
@@ -156,9 +196,10 @@ export async function resolvePlatformContext(options: {
     preferredTenantId &&
     localEntitlement?.status === PLATFORM_ACTIVE_STATUS
   ) {
-    const result = toResult("ready", {
+    const result = await resolveEntitlementShortcutResult({
+      status: "ready",
+      auth: options.auth,
       tenantId: preferredTenantId,
-      currentTenantId: preferredTenantId,
       localEntitlement,
     });
     setCachedPlatformContext(cacheKey, result);
@@ -171,9 +212,10 @@ export async function resolvePlatformContext(options: {
     localEntitlement &&
     localEntitlement.status !== PLATFORM_ACTIVE_STATUS
   ) {
-    const result = toResult("entitlement_inactive", {
+    const result = await resolveEntitlementShortcutResult({
+      status: "entitlement_inactive",
+      auth: options.auth,
       tenantId: preferredTenantId,
-      currentTenantId: preferredTenantId,
       localEntitlement,
     });
     setCachedPlatformContext(cacheKey, result);

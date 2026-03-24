@@ -7,7 +7,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 
 /** AppShell을 표시하지 않는 경로 접두사 */
-const SHELL_EXCLUDED_PREFIXES = ["/login", "/onboarding"];
+const SHELL_EXCLUDED_PREFIXES = ["/login", "/onboarding", "/tenant-invites"];
 
 const shouldExcludeShell = (pathname: string) =>
   SHELL_EXCLUDED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));

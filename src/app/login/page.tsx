@@ -2,10 +2,12 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { useI18n } from "@/components/I18nProvider";
 
 const OIDC_LOGIN_URL = "/api/auth/oidc/login";
 
 function LoginContent() {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const reason = searchParams.get("reason");
   const returnTo = searchParams.get("returnTo");
@@ -50,14 +52,14 @@ function LoginContent() {
 
           {/* 서비스 설명 */}
           <p className="mb-8 text-center text-sm text-muted-foreground">
-            악성메일 모의훈련 서비스
+            {t("악성메일 모의훈련 서비스")}
           </p>
 
           {/* 로그아웃 메시지 */}
           {reason === "logout" && (
             <div className="mb-6 rounded-lg border border-green-500/20 bg-green-500/10 px-4 py-3 text-center text-sm text-green-400">
               <span className="mr-1">✓</span>
-              로그아웃되었습니다
+              {t("로그아웃되었습니다")}
             </div>
           )}
 
@@ -67,7 +69,7 @@ function LoginContent() {
             onClick={handleLogin}
             className="mb-6 w-full rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            EVRIZ 계정으로 로그인
+            {t("EVRIZ 계정으로 로그인")}
           </button>
 
           {/* 구분선 */}
@@ -76,19 +78,19 @@ function LoginContent() {
               <div className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-card px-2 text-muted-foreground">또는</span>
+              <span className="bg-card px-2 text-muted-foreground">{t("또는")}</span>
             </div>
           </div>
 
           {/* 회원가입 안내 */}
           <div className="text-center">
-            <p className="mb-2 text-sm text-muted-foreground">처음 이용하시나요?</p>
+            <p className="mb-2 text-sm text-muted-foreground">{t("처음 이용하시나요?")}</p>
             <button
               type="button"
               onClick={handleSignup}
               className="inline-flex items-center text-sm font-medium text-primary transition-colors hover:text-primary/80"
             >
-              무료로 시작하기
+              {t("무료로 시작하기")}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
@@ -111,11 +113,13 @@ function LoginContent() {
 }
 
 export default function LoginPage() {
+  const { t } = useI18n();
+
   return (
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center bg-background">
-          <div className="text-muted-foreground">로딩 중...</div>
+          <div className="text-muted-foreground">{t("common.loading")}</div>
         </div>
       }
     >

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generateTrainingPageAiCandidatesMock = vi.hoisted(() => vi.fn());
+const executeWithAiCreditGateMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/server/services/trainingPageAi", async () => {
   const actual = await vi.importActual<typeof import("@/server/services/trainingPageAi")>(
@@ -13,12 +14,25 @@ vi.mock("@/server/services/trainingPageAi", async () => {
   };
 });
 
+vi.mock("@/server/platform/aiCredits", async () => {
+  const actual = await vi.importActual<typeof import("@/server/platform/aiCredits")>(
+    "@/server/platform/aiCredits",
+  );
+
+  return {
+    ...actual,
+    executeWithAiCreditGate: executeWithAiCreditGateMock,
+  };
+});
+
 import { TrainingPageAiServiceError } from "@/server/services/trainingPageAi";
 import { POST } from "./route";
 
 describe("POST /api/training-pages/ai-generate", () => {
   beforeEach(() => {
     generateTrainingPageAiCandidatesMock.mockReset();
+    executeWithAiCreditGateMock.mockReset();
+    executeWithAiCreditGateMock.mockImplementation(async ({ action }) => action());
   });
 
   it("훈련안내페이지 후보를 반환한다", async () => {
@@ -61,6 +75,38 @@ describe("POST /api/training-pages/ai-generate", () => {
         tone: "informational",
         prompt: "핵심 주의 문구를 짧게 넣어 주세요.",
         preservedCandidates: [{ id: "keep-1", name: "기존 후보" }],
+        usageContext: "standard",
+      }),
+    );
+  });
+
+  it("training page AI는 standard usageContext를 유지한다", async () => {
+    generateTrainingPageAiCandidatesMock.mockResolvedValue({
+      candidates: [
+        {
+          id: "candidate-1",
+          name: "표준 훈련 안내",
+          description: "표준 생성",
+          content: "<section>내용</section>",
+          summary: "표준 요약",
+        },
+      ],
+    });
+
+    await POST(
+      new Request("http://localhost/api/training-pages/ai-generate", {
+        method: "POST",
+        body: JSON.stringify({
+          tone: "informational",
+          prompt: "",
+        }),
+      }) as never,
+    );
+
+    expect(executeWithAiCreditGateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "training-page",
+        usageContext: "standard",
       }),
     );
   });
