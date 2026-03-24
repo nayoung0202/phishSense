@@ -6,6 +6,7 @@ import {
   settlePlatformCreditAuthorization,
 } from "@/server/platform/client";
 import { getFeatureFlags } from "@/server/featureFlags";
+import { hasActiveTenantAiKeyForScope } from "@/server/services/tenantAiKeys";
 import { requireReadyTenant } from "@/server/tenant/currentTenant";
 
 export class AiCreditGateError extends Error {
@@ -33,14 +34,22 @@ export async function executeWithAiCreditGate<T>(options: {
   request: NextRequest;
   kind: "template" | "training-page";
   usageContext: string;
-  action: () => Promise<T>;
+  action: (context: { tenantId: string }) => Promise<T>;
 }) {
   const featureFlags = getFeatureFlags();
-  if (!featureFlags.creditsEnforcementEnabled) {
-    return options.action();
-  }
+  const localScope = options.kind === "template" ? "template-ai" : "training-page-ai";
 
   const context = await requireReadyTenant(options.request);
+  const hasLocalByok = await hasActiveTenantAiKeyForScope(context.tenantId, localScope);
+
+  if (hasLocalByok) {
+    return options.action({ tenantId: context.tenantId });
+  }
+
+  if (!featureFlags.creditsEnforcementEnabled) {
+    return options.action({ tenantId: context.tenantId });
+  }
+
   if (!context.auth.accessToken) {
     throw new AiCreditGateError(400, "플랫폼 access token을 확인하지 못했습니다.");
   }
@@ -78,7 +87,7 @@ export async function executeWithAiCreditGate<T>(options: {
   }
 
   try {
-    const result = await options.action();
+    const result = await options.action({ tenantId: context.tenantId });
     await settlePlatformCreditAuthorization({
       accessToken: context.auth.accessToken,
       tenantId: context.tenantId,

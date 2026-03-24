@@ -128,7 +128,7 @@ export const jaMessages: TranslationMessages = {
   "settings.credits.emptyHistory": "最近の変動履歴はありません。",
   "settings.apiKeys.title": "BYOK APIキー",
   "settings.apiKeys.description":
-    "プラットフォームに保存されたマスク済みAPIキーメタデータを確認し、有効状態を管理します。",
+    "製品に暗号化保存されたBYOK APIキーを確認し、有効状態を管理します。",
   "settings.apiKeys.provider": "プロバイダー",
   "settings.apiKeys.label": "名前",
   "settings.apiKeys.masked": "マスク値",
@@ -137,7 +137,7 @@ export const jaMessages: TranslationMessages = {
   "settings.apiKeys.create": "APIキー登録",
   "settings.apiKeys.empty": "登録されたAPIキーがありません。",
   "settings.apiKeys.unavailable":
-    "APIキー管理を取得できませんでした。プラットフォーム接続を確認してください。",
+    "APIキー管理を取得できませんでした。",
   "settings.apiKeys.requireOwner": "BYOK APIキー管理は OWNER のみ利用できます。",
   "invite.title": "組織招待",
   "invite.description":

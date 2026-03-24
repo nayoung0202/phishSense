@@ -126,7 +126,7 @@ export const enMessages: TranslationMessages = {
   "settings.credits.emptyHistory": "No recent credit activity.",
   "settings.apiKeys.title": "BYOK API keys",
   "settings.apiKeys.description":
-    "Review masked API key metadata stored by the platform and manage activation state.",
+    "Review encrypted BYOK API keys stored in the product and manage activation state.",
   "settings.apiKeys.provider": "Provider",
   "settings.apiKeys.label": "Label",
   "settings.apiKeys.masked": "Masked value",
@@ -135,7 +135,7 @@ export const enMessages: TranslationMessages = {
   "settings.apiKeys.create": "Register API key",
   "settings.apiKeys.empty": "No API keys registered.",
   "settings.apiKeys.unavailable":
-    "API key management is unavailable. Check platform connectivity.",
+    "API key management is unavailable.",
   "settings.apiKeys.requireOwner": "Only OWNER can manage BYOK API keys.",
   "invite.title": "Tenant invite",
   "invite.description":

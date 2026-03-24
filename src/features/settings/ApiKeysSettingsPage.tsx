@@ -31,7 +31,7 @@ export default function ApiKeysSettingsPage() {
   const queryClient = useQueryClient();
   const { byokUiEnabled } = useFeatureFlags();
   const { tenantId, membership, isLoading: isTenantLoading } = useSettingsTenant();
-  const [provider, setProvider] = useState("OPENAI");
+  const [provider, setProvider] = useState("CLAUDE");
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [scopesText, setScopesText] = useState("template-ai,training-page-ai");
@@ -146,6 +146,9 @@ export default function ApiKeysSettingsPage() {
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
           {t("settings.apiKeys.description")}
         </p>
+        <p className="mt-2 max-w-2xl text-xs leading-5 text-muted-foreground">
+          저장 시 API 키 원문은 다시 노출되지 않으며, 제품 DB에 암호화된 상태로 보관됩니다.
+        </p>
 
         <form
           className="mt-6 grid gap-4 rounded-2xl border border-border/70 bg-background/40 p-5 lg:grid-cols-2"
@@ -162,6 +165,7 @@ export default function ApiKeysSettingsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="CLAUDE">CLAUDE</SelectItem>
                 <SelectItem value="OPENAI">OPENAI</SelectItem>
                 <SelectItem value="GEMINI">GEMINI</SelectItem>
               </SelectContent>

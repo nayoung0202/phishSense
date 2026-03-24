@@ -36,6 +36,22 @@ type OpenAiChatCompletionPayload = {
   };
 };
 
+type AnthropicMessagePayload = {
+  content?: Array<{
+    type?: string;
+    text?: string;
+  }>;
+  model?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  };
+  error?: {
+    type?: string;
+    message?: string;
+  };
+};
+
 type GenerateTemplateAiResult = {
   candidates: TemplateAiCandidate[];
   usage: {
@@ -47,9 +63,16 @@ type GenerateTemplateAiResult = {
   };
 };
 
+type TemplateAiProviderApiKeys = {
+  anthropicApiKey?: string;
+  openAiApiKey?: string;
+  geminiApiKey?: string;
+};
+
 type ProviderRequestResult = {
   payload: unknown;
   model: string;
+  provider: "anthropic" | "openai" | "gemini";
 };
 
 type GeminiApiErrorPayload = {
@@ -101,6 +124,7 @@ const responseSchema = {
   required: ["candidates"],
 };
 const OPENAI_TEMPLATE_AI_MODEL = "gpt-4.1-mini";
+const ANTHROPIC_TEMPLATE_AI_MODEL = "claude-sonnet-4-20250514";
 const GEMINI_TEMPLATE_AI_FALLBACK_MODELS = ["gemini-2.5-flash"] as const;
 
 const defaultMailBodyReferenceHtml = `
@@ -241,7 +265,7 @@ const createProviderApiKeyMissingError = () =>
     status: 503,
     code: "ai_api_key_missing",
     message:
-      "서버에 AI API 키가 설정되지 않았습니다. .env 파일에 GEMINI_API_KEY 또는 OPENAI_API_KEY를 추가한 뒤 서버를 다시 시작하세요.",
+      "서버에 AI API 키가 설정되지 않았습니다. .env 파일에 ANTHROPIC_API_KEY, OPENAI_API_KEY 또는 GEMINI_API_KEY를 추가한 뒤 서버를 다시 시작하세요.",
   });
 
 const extractJsonText = (payload: unknown) => {
@@ -289,6 +313,35 @@ const extractOpenAiJsonText = (payload: unknown) => {
         .join("")
         .trim()
     : String(content ?? "").trim();
+
+  if (!text) {
+    throw new Error("empty_ai_response");
+  }
+
+  const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fencedMatch?.[1]?.trim()) {
+    return fencedMatch[1].trim();
+  }
+
+  const jsonStart = text.indexOf("{");
+  const jsonEnd = text.lastIndexOf("}");
+
+  if (jsonStart >= 0 && jsonEnd > jsonStart) {
+    return text.slice(jsonStart, jsonEnd + 1).trim();
+  }
+
+  return text;
+};
+
+const extractAnthropicJsonText = (payload: unknown) => {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("invalid_ai_response");
+  }
+
+  const text = ((payload as AnthropicMessagePayload).content ?? [])
+    .map((part) => (part.type === "text" ? part.text ?? "" : ""))
+    .join("")
+    .trim();
 
   if (!text) {
     throw new Error("empty_ai_response");
@@ -681,6 +734,50 @@ const buildOpenAiUserContent = (request: TemplateAiRequest) => {
   return content;
 };
 
+const buildAnthropicUserContent = (request: TemplateAiRequest) => {
+  const content: Array<
+    | { type: "text"; text: string }
+    | {
+        type: "image";
+        source: {
+          type: "base64";
+          media_type: string;
+          data: string;
+        };
+      }
+  > = [{ type: "text", text: buildTemplateAiPrompt(request) }];
+
+  if (
+    request.mailBodyReferenceAttachment?.kind === "image" &&
+    request.mailBodyReferenceAttachment.base64Data
+  ) {
+    content.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: request.mailBodyReferenceAttachment.mimeType,
+        data: request.mailBodyReferenceAttachment.base64Data,
+      },
+    });
+  }
+
+  if (
+    request.maliciousPageReferenceAttachment?.kind === "image" &&
+    request.maliciousPageReferenceAttachment.base64Data
+  ) {
+    content.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: request.maliciousPageReferenceAttachment.mimeType,
+        data: request.maliciousPageReferenceAttachment.base64Data,
+      },
+    });
+  }
+
+  return content;
+};
+
 const requestGeminiCandidates = async (
   request: TemplateAiRequest,
   apiKey: string,
@@ -814,6 +911,132 @@ const requestOpenAiCandidates = async (request: TemplateAiRequest, apiKey: strin
   throw lastError ?? createGeminiNetworkError();
 };
 
+const createAnthropicApiError = (responseStatus: number, rawText: string) => {
+  const normalizedText = rawText.trim();
+  let message = normalizedText;
+  let errorType = "";
+
+  if (normalizedText) {
+    try {
+      const parsed = JSON.parse(normalizedText) as AnthropicMessagePayload;
+      message = parsed.error?.message?.trim() ?? normalizedText;
+      errorType = parsed.error?.type?.trim() ?? "";
+    } catch {
+      // Ignore parsing failure and fall back to the raw body.
+    }
+  }
+
+  const isHighDemand =
+    responseStatus === 429 ||
+    responseStatus === 503 ||
+    responseStatus === 529 ||
+    errorType === "overloaded_error" ||
+    /overloaded|high demand|try again later/i.test(message);
+
+  if (isHighDemand) {
+    return createTemplateAiServiceError({
+      status: 503,
+      code: "anthropic_service_unavailable",
+      message: "AI 템플릿 생성 요청이 일시적으로 많습니다. 잠시 후 다시 시도하세요.",
+      retryable: true,
+    });
+  }
+
+  if (responseStatus >= 500) {
+    return createTemplateAiServiceError({
+      status: 503,
+      code: "anthropic_service_unavailable",
+      message: "AI 템플릿 생성 서비스가 일시적으로 불안정합니다. 잠시 후 다시 시도하세요.",
+      retryable: true,
+    });
+  }
+
+  if (responseStatus >= 400) {
+    return createTemplateAiServiceError({
+      status: 502,
+      code: "anthropic_api_error",
+      message: "AI 템플릿 생성 요청을 처리하지 못했습니다. 잠시 후 다시 시도하세요.",
+    });
+  }
+
+  return createTemplateAiServiceError({
+    status: 500,
+    code: "template_ai_generate_failed",
+    message: "AI 템플릿 생성에 실패했습니다.",
+  });
+};
+
+const createAnthropicNetworkError = () =>
+  createTemplateAiServiceError({
+    status: 503,
+    code: "anthropic_network_error",
+    message: "AI 템플릿 생성 서비스에 연결하지 못했습니다. 잠시 후 다시 시도하세요.",
+    retryable: true,
+  });
+
+const createAnthropicInvalidResponseError = () =>
+  createTemplateAiServiceError({
+    status: 502,
+    code: "anthropic_invalid_response",
+    message: "AI 템플릿 생성 응답이 올바르지 않습니다. 잠시 후 다시 시도하세요.",
+    retryable: true,
+  });
+
+const requestAnthropicCandidates = async (request: TemplateAiRequest, apiKey: string) => {
+  let lastError: TemplateAiServiceError | null = null;
+
+  for (let attempt = 0; attempt <= templateAiRetryDelaysMs.length; attempt += 1) {
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model:
+            process.env.ANTHROPIC_TEMPLATE_AI_MODEL?.trim() || ANTHROPIC_TEMPLATE_AI_MODEL,
+          max_tokens: 8192,
+          messages: [
+            {
+              role: "user",
+              content: buildAnthropicUserContent(request),
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        lastError = createAnthropicApiError(response.status, await response.text());
+      } else {
+        const payload = await response.json();
+        const text = extractAnthropicJsonText(payload);
+
+        JSON.parse(text);
+
+        return payload;
+      }
+    } catch (error) {
+      if (error instanceof TemplateAiServiceError) {
+        lastError = error;
+      } else if (error instanceof Error && /invalid_ai_response|empty_ai_response|JSON/i.test(error.message)) {
+        lastError = createAnthropicInvalidResponseError();
+      } else {
+        lastError = createAnthropicNetworkError();
+      }
+    }
+
+    if (!lastError.retryable || attempt === templateAiRetryDelaysMs.length) {
+      throw lastError;
+    }
+
+    await sleep(templateAiRetryDelaysMs[attempt]);
+  }
+
+  throw lastError ?? createAnthropicNetworkError();
+};
+
 export const buildTemplateAiPrompt = (request: TemplateAiRequest) => {
   const topicText = resolveTemplateAiTopicText(request);
   const toneText = templateAiToneLabels[request.tone];
@@ -912,13 +1135,25 @@ const estimateCreditsFromUsage = (usage: GeminiUsageMetadata) => {
 
 const extractUsageFromPayload = (
   payload: unknown,
-  openAiApiKeyPresent: boolean,
+  provider: "anthropic" | "openai" | "gemini",
 ): GeminiUsageMetadata => {
-  if (openAiApiKeyPresent) {
+  if (provider === "openai") {
     return {
       promptTokenCount: (payload as OpenAiChatCompletionPayload).usage?.prompt_tokens ?? 0,
       candidatesTokenCount: (payload as OpenAiChatCompletionPayload).usage?.completion_tokens ?? 0,
       totalTokenCount: (payload as OpenAiChatCompletionPayload).usage?.total_tokens ?? 0,
+    };
+  }
+
+  if (provider === "anthropic") {
+    const anthropicUsage = (payload as AnthropicMessagePayload).usage;
+    const promptTokenCount = anthropicUsage?.input_tokens ?? 0;
+    const candidatesTokenCount = anthropicUsage?.output_tokens ?? 0;
+
+    return {
+      promptTokenCount,
+      candidatesTokenCount,
+      totalTokenCount: promptTokenCount + candidatesTokenCount,
     };
   }
 
@@ -938,9 +1173,14 @@ const mergeUsageMetadata = (
 const parseTemplateCandidatesFromPayload = (
   payload: unknown,
   request: TemplateAiRequest,
-  openAiApiKeyPresent: boolean,
+  provider: "anthropic" | "openai" | "gemini",
 ) => {
-  const text = openAiApiKeyPresent ? extractOpenAiJsonText(payload) : extractJsonText(payload);
+  const text =
+    provider === "openai"
+      ? extractOpenAiJsonText(payload)
+      : provider === "anthropic"
+        ? extractAnthropicJsonText(payload)
+        : extractJsonText(payload);
   const parsed = JSON.parse(text) as {
     candidates?: Array<Partial<Omit<TemplateAiCandidate, "id">>>;
   };
@@ -965,35 +1205,67 @@ const parseTemplateCandidatesFromPayload = (
 
 const requestTemplateAiPayload = async (
   request: TemplateAiRequest,
+  anthropicApiKey: string | undefined,
   openAiApiKey: string | undefined,
   geminiApiKey: string | undefined,
 ): Promise<ProviderRequestResult> => {
+  if (anthropicApiKey) {
+    return {
+      payload: await requestAnthropicCandidates(request, anthropicApiKey),
+      model:
+        process.env.ANTHROPIC_TEMPLATE_AI_MODEL?.trim() || ANTHROPIC_TEMPLATE_AI_MODEL,
+      provider: "anthropic",
+    };
+  }
+
   if (openAiApiKey) {
     return {
       payload: await requestOpenAiCandidates(request, openAiApiKey),
       model: process.env.OPENAI_TEMPLATE_AI_MODEL?.trim() || OPENAI_TEMPLATE_AI_MODEL,
+      provider: "openai",
     };
   }
 
-  return requestGeminiCandidates(request, geminiApiKey as string);
+  const result = await requestGeminiCandidates(request, geminiApiKey as string);
+  return {
+    ...result,
+    provider: "gemini",
+  };
 };
 
 export async function generateTemplateAiCandidates(
   request: TemplateAiRequest,
+  options?: {
+    providerApiKeys?: TemplateAiProviderApiKeys;
+  },
 ): Promise<GenerateTemplateAiResult> {
-  const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
-  const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
+  const providerApiKeys = options?.providerApiKeys;
+  const anthropicApiKey = providerApiKeys
+    ? providerApiKeys.anthropicApiKey?.trim()
+    : process.env.ANTHROPIC_API_KEY?.trim() || process.env.CLAUDE_API_KEY?.trim();
+  const openAiApiKey = providerApiKeys
+    ? providerApiKeys.openAiApiKey?.trim()
+    : process.env.OPENAI_API_KEY?.trim();
+  const geminiApiKey = providerApiKeys
+    ? providerApiKeys.geminiApiKey?.trim()
+    : process.env.GEMINI_API_KEY?.trim();
 
-  if (!openAiApiKey && !geminiApiKey) {
+  if (!anthropicApiKey && !openAiApiKey && !geminiApiKey) {
     throw createProviderApiKeyMissingError();
   }
 
   let candidates: TemplateAiCandidate[] = [];
   let usageMetadata: GeminiUsageMetadata = {};
   let lastPayload: unknown = null;
-  let responseModel = openAiApiKey
-    ? process.env.OPENAI_TEMPLATE_AI_MODEL?.trim() || OPENAI_TEMPLATE_AI_MODEL
-    : DEFAULT_TEMPLATE_AI_MODEL;
+  let responseModel =
+    process.env.ANTHROPIC_TEMPLATE_AI_MODEL?.trim() ||
+    process.env.OPENAI_TEMPLATE_AI_MODEL?.trim() ||
+    DEFAULT_TEMPLATE_AI_MODEL;
+  let responseProvider: "anthropic" | "openai" | "gemini" = anthropicApiKey
+    ? "anthropic"
+    : openAiApiKey
+      ? "openai"
+      : "gemini";
   const maxSupplementalRounds = 1;
 
   try {
@@ -1018,21 +1290,23 @@ export async function generateTemplateAiCandidates(
               ].slice(0, 3),
             };
 
-      const { payload, model } = await requestTemplateAiPayload(
+      const { payload, model, provider } = await requestTemplateAiPayload(
         roundRequest,
+        anthropicApiKey,
         openAiApiKey,
         geminiApiKey,
       );
       lastPayload = payload;
       responseModel = model;
+      responseProvider = provider;
       usageMetadata = mergeUsageMetadata(
         usageMetadata,
-        extractUsageFromPayload(payload, Boolean(openAiApiKey)),
+        extractUsageFromPayload(payload, provider),
       );
       const nextCandidates = parseTemplateCandidatesFromPayload(
         payload,
         roundRequest,
-        Boolean(openAiApiKey),
+        provider,
       );
 
       for (const candidate of nextCandidates) {
@@ -1080,7 +1354,7 @@ export async function generateTemplateAiCandidates(
     }
 
     console.error("[template-ai] invalid provider response", {
-      provider: openAiApiKey ? "openai" : "gemini",
+      provider: responseProvider,
       model: responseModel,
       reason: error instanceof Error ? error.message : "unknown_error",
       payload: buildInvalidAiPayloadDebugSnippet(lastPayload),

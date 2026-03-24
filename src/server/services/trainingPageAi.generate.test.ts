@@ -71,6 +71,8 @@ const buildGeminiSuccessResponse = (
 describe("generateTrainingPageAiCandidates", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("CLAUDE_API_KEY", "");
     vi.stubEnv("GEMINI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_API_KEY", "");
   });
@@ -136,6 +138,137 @@ describe("generateTrainingPageAiCandidates", () => {
       }),
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("ANTHROPIC_API_KEY가 있으면 Claude messages 엔드포인트를 사용한다", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-key");
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                candidates: [
+                  {
+                    name: "훈련 후보 1",
+                    description: "설명 1",
+                    content: "<div><p>학습 안내를 확인해 주세요.</p></div>",
+                    summary: "요약 1",
+                  },
+                ],
+              }),
+            },
+          ],
+          model: "claude-sonnet-4-20250514",
+          usage: {
+            input_tokens: 111,
+            output_tokens: 222,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      generateTrainingPageAiCandidates({
+        ...baseRequest,
+        generateCount: 1,
+      }),
+    ).resolves.toMatchObject({
+      candidates: expect.arrayContaining([
+        expect.objectContaining({
+          name: "훈련 후보 1",
+        }),
+      ]),
+      usage: expect.objectContaining({
+        promptTokenCount: 111,
+        candidatesTokenCount: 222,
+        totalTokenCount: 333,
+        model: "claude-sonnet-4-20250514",
+      }),
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.anthropic.com/v1/messages",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "x-api-key": "anthropic-key",
+        }),
+      }),
+    );
+  });
+
+  it("providerApiKeys가 전달되면 env보다 tenant BYOK를 우선 사용한다", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("OPENAI_API_KEY", "openai-key");
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                candidates: [
+                  {
+                    name: "훈련 후보 1",
+                    description: "설명 1",
+                    content: "<div><p>학습 안내를 확인해 주세요.</p></div>",
+                    summary: "요약 1",
+                  },
+                ],
+              }),
+            },
+          ],
+          usage: {
+            input_tokens: 10,
+            output_tokens: 20,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      generateTrainingPageAiCandidates(
+        {
+          ...baseRequest,
+          generateCount: 1,
+        },
+        {
+          providerApiKeys: {
+            anthropicApiKey: "tenant-anthropic-key",
+          },
+        },
+      ),
+    ).resolves.toMatchObject({
+      usage: expect.objectContaining({
+        model: "claude-sonnet-4-20250514",
+      }),
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.anthropic.com/v1/messages",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "x-api-key": "tenant-anthropic-key",
+        }),
+      }),
+    );
   });
 
   it("단순 안내형 HTML도 안전 규칙만 통과하면 후보로 반환한다", async () => {

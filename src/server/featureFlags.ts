@@ -1,4 +1,3 @@
-import "server-only";
 import type { FeatureFlags } from "@/lib/featureFlags";
 
 const parseBoolean = (value: string | undefined, fallback: boolean) => {

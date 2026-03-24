@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generateTemplateAiCandidatesMock = vi.hoisted(() => vi.fn());
 const executeWithAiCreditGateMock = vi.hoisted(() => vi.fn());
+const tenantAiKeysMock = vi.hoisted(() => ({
+  resolveTenantAiProviderKeys: vi.fn(),
+  markTenantAiKeyUsed: vi.fn(),
+}));
 
 vi.mock("@/server/services/templateAi", async () => {
   const actual = await vi.importActual<typeof import("@/server/services/templateAi")>(
@@ -15,24 +19,49 @@ vi.mock("@/server/services/templateAi", async () => {
 });
 
 vi.mock("@/server/platform/aiCredits", async () => {
-  const actual = await vi.importActual<typeof import("@/server/platform/aiCredits")>(
-    "@/server/platform/aiCredits",
-  );
-
   return {
-    ...actual,
+    AiCreditGateError: class AiCreditGateError extends Error {
+      status: number;
+
+      constructor(status: number, message: string) {
+        super(message);
+        this.status = status;
+      }
+    },
     executeWithAiCreditGate: executeWithAiCreditGateMock,
   };
 });
 
+vi.mock("@/server/services/tenantAiKeys", () => tenantAiKeysMock);
+
 import { TemplateAiServiceError } from "@/server/services/templateAi";
 import { POST } from "./route";
+
+const createMultipartFile = (contents: string, name: string, type: string) => {
+  const file = new File([contents], name, { type });
+  const bytes = new TextEncoder().encode(contents);
+  Object.defineProperty(file, "text", {
+    value: async () => contents,
+  });
+  Object.defineProperty(file, "arrayBuffer", {
+    value: async () => bytes.buffer.slice(0),
+  });
+  return file;
+};
 
 describe("POST /api/templates/ai-generate", () => {
   beforeEach(() => {
     generateTemplateAiCandidatesMock.mockReset();
     executeWithAiCreditGateMock.mockReset();
-    executeWithAiCreditGateMock.mockImplementation(async ({ action }) => action());
+    tenantAiKeysMock.resolveTenantAiProviderKeys.mockReset();
+    tenantAiKeysMock.markTenantAiKeyUsed.mockReset();
+    tenantAiKeysMock.resolveTenantAiProviderKeys.mockResolvedValue({
+      hasAny: false,
+      preferredKeyId: null,
+    });
+    executeWithAiCreditGateMock.mockImplementation(async ({ action }) =>
+      action({ tenantId: "tenant-local-001" }),
+    );
   });
 
   it("name 없이 생성된 후보를 반환한다", async () => {
@@ -82,6 +111,7 @@ describe("POST /api/templates/ai-generate", () => {
         preservedCandidates: [{ id: "keep-1", subject: "기존 후보 제목" }],
         usageContext: "standard",
       }),
+      undefined,
     );
   });
 
@@ -128,6 +158,7 @@ describe("POST /api/templates/ai-generate", () => {
         customTopic: "사내 행사 안내",
         usageContext: "standard",
       }),
+      undefined,
     );
   });
 
@@ -169,6 +200,7 @@ describe("POST /api/templates/ai-generate", () => {
       expect.objectContaining({
         usageContext: "experience",
       }),
+      undefined,
     );
   });
 
@@ -203,19 +235,24 @@ describe("POST /api/templates/ai-generate", () => {
     formData.set("preservedCandidates", "[]");
     formData.set(
       "mailBodyReferenceAttachment",
-      new File(["<div>메일 참고</div>"], "mail-reference.html", { type: "text/html" }),
+      createMultipartFile("<div>메일 참고</div>", "mail-reference.html", "text/html"),
     );
     formData.set(
       "maliciousPageReferenceAttachment",
-      new File(["image"], "landing-reference.png", { type: "image/png" }),
+      createMultipartFile("image", "landing-reference.png", "image/png"),
     );
 
-    const response = await POST(
-      new Request("http://localhost/api/templates/ai-generate", {
-        method: "POST",
-        body: formData,
-      }),
-    );
+    const request = new Request("http://localhost/api/templates/ai-generate", {
+      method: "POST",
+      headers: {
+        "content-type": "multipart/form-data; boundary=test",
+      },
+    });
+    Object.defineProperty(request, "formData", {
+      value: async () => formData,
+    });
+
+    const response = await POST(request as never);
 
     expect(response.status).toBe(200);
     expect(generateTemplateAiCandidatesMock).toHaveBeenCalledWith(
@@ -232,6 +269,58 @@ describe("POST /api/templates/ai-generate", () => {
           base64Data: expect.any(String),
         }),
       }),
+      undefined,
+    );
+  });
+
+  it("활성 tenant BYOK가 있으면 서비스에 providerApiKeys를 전달한다", async () => {
+    tenantAiKeysMock.resolveTenantAiProviderKeys.mockResolvedValue({
+      hasAny: true,
+      preferredKeyId: "key-1",
+      anthropicApiKey: "anthropic-key",
+      openAiApiKey: undefined,
+      geminiApiKey: undefined,
+    });
+    generateTemplateAiCandidatesMock.mockResolvedValue({
+      candidates: [
+        {
+          id: "candidate-1",
+          subject: "보안 점검 안내",
+          body: '<a href="{{LANDING_URL}}">확인</a>',
+          maliciousPageContent:
+            '<form action="{{TRAINING_URL}}"><button type="submit">제출</button></form>',
+          summary: "후보",
+        },
+      ],
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/templates/ai-generate", {
+        method: "POST",
+        body: JSON.stringify({
+          topic: "shipping",
+          customTopic: "",
+          tone: "formal",
+          difficulty: "easy",
+          prompt: "",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(tenantAiKeysMock.markTenantAiKeyUsed).toHaveBeenCalledWith(
+      "tenant-local-001",
+      "key-1",
+    );
+    expect(generateTemplateAiCandidatesMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        providerApiKeys: {
+          anthropicApiKey: "anthropic-key",
+          openAiApiKey: undefined,
+          geminiApiKey: undefined,
+        },
+      },
     );
   });
 

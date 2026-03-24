@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -36,6 +37,32 @@ export {
   authSessions,
   reportSettings,
 };
+
+export const tenantAiKeysTable = pgTable(
+  "tenant_ai_keys",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    provider: text("provider").notNull(),
+    label: text("label").notNull(),
+    keyEnc: text("key_enc").notNull(),
+    maskedValue: text("masked_value").notNull(),
+    keyFingerprint: text("key_fingerprint").notNull(),
+    status: text("status").notNull().default("ACTIVE"),
+    scopes: text("scopes").array().notNull().default(sql`ARRAY[]::text[]`),
+    lastUsedAt: timestampColumn("last_used_at"),
+    createdAt: timestampColumn("created_at").defaultNow(),
+    updatedAt: timestampColumn("updated_at").defaultNow(),
+  },
+  (table) => ({
+    tenantIdx: index("tenant_ai_keys_tenant_idx").on(table.tenantId),
+    tenantStatusIdx: index("tenant_ai_keys_tenant_status_idx").on(table.tenantId, table.status),
+    tenantFingerprintUnique: uniqueIndex("tenant_ai_keys_tenant_fingerprint_idx").on(
+      table.tenantId,
+      table.keyFingerprint,
+    ),
+  }),
+);
 
 export const smtpAccountsTable = pgTable(
   "smtp_accounts",
@@ -104,3 +131,5 @@ export type NewSmtpAccountRow = typeof smtpAccountsTable.$inferInsert;
 export type PlatformEntitlementRow = typeof platformEntitlements.$inferSelect;
 export type NewPlatformEntitlementRow = typeof platformEntitlements.$inferInsert;
 export type PlatformEntitlementEventRow = typeof platformEntitlementEvents.$inferSelect;
+export type TenantAiKeyRow = typeof tenantAiKeysTable.$inferSelect;
+export type NewTenantAiKeyRow = typeof tenantAiKeysTable.$inferInsert;

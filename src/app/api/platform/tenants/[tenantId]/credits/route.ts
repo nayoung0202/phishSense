@@ -5,6 +5,7 @@ import {
   requireScopedTenantAccess,
   TenantAccessError,
 } from "@/server/platform/tenantAccess";
+import { listTenantAiKeys } from "@/server/services/tenantAiKeys";
 
 export const runtime = "nodejs";
 
@@ -28,12 +29,19 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       );
     }
 
+    const localAiKeys = await listTenantAiKeys(tenantId);
+    const activeLocalAiKeys = localAiKeys.filter((item) => item.status === "ACTIVE");
+
     try {
       const credits = await fetchPlatformCredits({
         accessToken: context.auth.accessToken,
         tenantId,
       });
-      return NextResponse.json(credits);
+      return NextResponse.json({
+        ...credits,
+        byokAvailable: credits.byokAvailable || activeLocalAiKeys.length > 0,
+        activeAiKeys: Math.max(credits.activeAiKeys, activeLocalAiKeys.length),
+      });
     } catch (error) {
       if (error instanceof PlatformApiError && error.status === 401) {
         return NextResponse.json(
@@ -42,11 +50,19 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         );
       }
 
-      return NextResponse.json(getFallbackCreditsSummary(tenantId), {
+      const fallback = getFallbackCreditsSummary(tenantId);
+      return NextResponse.json(
+        {
+          ...fallback,
+          byokAvailable: fallback.byokAvailable || activeLocalAiKeys.length > 0,
+          activeAiKeys: Math.max(fallback.activeAiKeys, activeLocalAiKeys.length),
+        },
+        {
         headers: {
           "X-PhishSense-Fallback": "credits",
         },
-      });
+        },
+      );
     }
   } catch (error) {
     if (error instanceof TenantAccessError) {

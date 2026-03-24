@@ -42,7 +42,7 @@
 
 - invite 메일 발송, resend, revoke, delivery 조회
 - 제품이 직접 Stripe secret key를 보유하는 결제 구현
-- 제품이 raw BYOK 값을 저장하거나 재노출하는 구현
+- BYOK 값을 평문으로 저장하거나 재노출하는 구현
 - 플랫폼 없는 상태에서의 장기 billing/credits source-of-truth 결정
 
 ## 핵심 정책
@@ -77,8 +77,9 @@
   - 훈련 안내 페이지 AI 생성 `standard`: 1
 - 크래딧이 0이고 활성 BYOK가 없으면 AI 생성은 차단한다.
 - `체험하기` 흐름의 템플릿 AI 생성만 무료 예외다.
-- API 키 CRUD는 플랫폼 계약을 통해 중앙 관리한다.
-- 제품은 마스킹된 메타데이터만 조회/표시한다.
+- 현재 단계에서는 제품이 tenant별 BYOK를 암호화 저장하고 CRUD를 직접 처리한다.
+- 제품은 마스킹된 메타데이터만 조회/표시하고 raw 키는 재노출하지 않는다.
+- route 계약은 추후 플랫폼 중앙관리로 되돌릴 수 있도록 tenant-scoped BFF 형태를 유지한다.
 
 ## 제품 라우트와 BFF
 
@@ -121,7 +122,7 @@
 - tenant-scoped BFF는 기존 ready tenant 검증과 membership 검증을 재사용한다.
 - 플랫폼 billing/credits API가 준비되지 않은 개발 환경에서는 서버 fallback 카탈로그를 사용한다.
 - 현재 AI 실행 엔진은 기존 서버 기본 키 fallback을 유지한다.
-- 플랫폼 BYOK의 raw key 사용 또는 provider proxy는 후속 플랫폼 계약으로 연결한다.
+- 제품은 `AI_KEY_SECRET` 기반 암호화 저장을 사용하고, 추후 플랫폼 BYOK 중앙관리 또는 provider proxy로 전환 가능하도록 경계를 유지한다.
 
 ## 검증 기준
 

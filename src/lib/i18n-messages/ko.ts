@@ -124,7 +124,7 @@ export const koMessages = {
   "settings.credits.emptyHistory": "최근 변동 이력이 없습니다.",
   "settings.apiKeys.title": "BYOK API 키",
   "settings.apiKeys.description":
-    "플랫폼에 저장된 API 키 메타데이터를 확인하고 활성 상태를 관리합니다.",
+    "제품에 암호화 저장된 BYOK API 키를 확인하고 활성 상태를 관리합니다.",
   "settings.apiKeys.provider": "제공자",
   "settings.apiKeys.label": "이름",
   "settings.apiKeys.masked": "마스킹 값",
@@ -133,7 +133,7 @@ export const koMessages = {
   "settings.apiKeys.create": "API 키 등록",
   "settings.apiKeys.empty": "등록된 API 키가 없습니다.",
   "settings.apiKeys.unavailable":
-    "API 키 관리 기능을 불러오지 못했습니다. 플랫폼 연동 상태를 확인해 주세요.",
+    "API 키 관리 기능을 불러오지 못했습니다.",
   "settings.apiKeys.requireOwner":
     "BYOK API 키 관리는 OWNER 권한에서만 사용할 수 있습니다.",
   "invite.title": "조직 초대",

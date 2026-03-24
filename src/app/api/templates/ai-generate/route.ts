@@ -15,6 +15,10 @@ import {
   AiCreditGateError,
   executeWithAiCreditGate,
 } from "@/server/platform/aiCredits";
+import {
+  markTenantAiKeyUsed,
+  resolveTenantAiProviderKeys,
+} from "@/server/services/tenantAiKeys";
 
 class TemplateAiRequestParseError extends Error {
   status: number;
@@ -123,7 +127,26 @@ export async function POST(request: NextRequest) {
       request,
       kind: "template",
       usageContext: payload.usageContext,
-      action: () => generateTemplateAiCandidates(payload),
+      action: async ({ tenantId }) => {
+        const tenantKeys = await resolveTenantAiProviderKeys(tenantId, "template-ai");
+
+        if (tenantKeys.preferredKeyId) {
+          await markTenantAiKeyUsed(tenantId, tenantKeys.preferredKeyId);
+        }
+
+        return generateTemplateAiCandidates(
+          payload,
+          tenantKeys.hasAny
+            ? {
+                providerApiKeys: {
+                  anthropicApiKey: tenantKeys.anthropicApiKey,
+                  openAiApiKey: tenantKeys.openAiApiKey,
+                  geminiApiKey: tenantKeys.geminiApiKey,
+                },
+              }
+            : undefined,
+        );
+      },
     });
     return NextResponse.json(templateAiGenerateResponseSchema.parse(result));
   } catch (error) {

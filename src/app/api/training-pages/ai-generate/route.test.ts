@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generateTrainingPageAiCandidatesMock = vi.hoisted(() => vi.fn());
 const executeWithAiCreditGateMock = vi.hoisted(() => vi.fn());
+const tenantAiKeysMock = vi.hoisted(() => ({
+  resolveTenantAiProviderKeys: vi.fn(),
+  markTenantAiKeyUsed: vi.fn(),
+}));
 
 vi.mock("@/server/services/trainingPageAi", async () => {
   const actual = await vi.importActual<typeof import("@/server/services/trainingPageAi")>(
@@ -15,15 +19,20 @@ vi.mock("@/server/services/trainingPageAi", async () => {
 });
 
 vi.mock("@/server/platform/aiCredits", async () => {
-  const actual = await vi.importActual<typeof import("@/server/platform/aiCredits")>(
-    "@/server/platform/aiCredits",
-  );
-
   return {
-    ...actual,
+    AiCreditGateError: class AiCreditGateError extends Error {
+      status: number;
+
+      constructor(status: number, message: string) {
+        super(message);
+        this.status = status;
+      }
+    },
     executeWithAiCreditGate: executeWithAiCreditGateMock,
   };
 });
+
+vi.mock("@/server/services/tenantAiKeys", () => tenantAiKeysMock);
 
 import { TrainingPageAiServiceError } from "@/server/services/trainingPageAi";
 import { POST } from "./route";
@@ -32,7 +41,15 @@ describe("POST /api/training-pages/ai-generate", () => {
   beforeEach(() => {
     generateTrainingPageAiCandidatesMock.mockReset();
     executeWithAiCreditGateMock.mockReset();
-    executeWithAiCreditGateMock.mockImplementation(async ({ action }) => action());
+    tenantAiKeysMock.resolveTenantAiProviderKeys.mockReset();
+    tenantAiKeysMock.markTenantAiKeyUsed.mockReset();
+    tenantAiKeysMock.resolveTenantAiProviderKeys.mockResolvedValue({
+      hasAny: false,
+      preferredKeyId: null,
+    });
+    executeWithAiCreditGateMock.mockImplementation(async ({ action }) =>
+      action({ tenantId: "tenant-local-001" }),
+    );
   });
 
   it("훈련안내페이지 후보를 반환한다", async () => {
@@ -77,6 +94,7 @@ describe("POST /api/training-pages/ai-generate", () => {
         preservedCandidates: [{ id: "keep-1", name: "기존 후보" }],
         usageContext: "standard",
       }),
+      undefined,
     );
   });
 
@@ -158,6 +176,7 @@ describe("POST /api/training-pages/ai-generate", () => {
           textContent: "<div>훈련 페이지 참고</div>",
         }),
       }),
+      undefined,
     );
   });
 
@@ -207,6 +226,54 @@ describe("POST /api/training-pages/ai-generate", () => {
           textContent: longHtml,
         }),
       }),
+      undefined,
+    );
+  });
+
+  it("활성 tenant BYOK가 있으면 훈련안내페이지 생성에도 providerApiKeys를 전달한다", async () => {
+    tenantAiKeysMock.resolveTenantAiProviderKeys.mockResolvedValue({
+      hasAny: true,
+      preferredKeyId: "key-1",
+      anthropicApiKey: "anthropic-key",
+      openAiApiKey: undefined,
+      geminiApiKey: undefined,
+    });
+    generateTrainingPageAiCandidatesMock.mockResolvedValue({
+      candidates: [
+        {
+          id: "candidate-1",
+          name: "훈련 후보",
+          description: "설명",
+          content: "<section>내용</section>",
+          summary: "요약",
+        },
+      ],
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/training-pages/ai-generate", {
+        method: "POST",
+        body: JSON.stringify({
+          tone: "formal",
+          prompt: "",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(tenantAiKeysMock.markTenantAiKeyUsed).toHaveBeenCalledWith(
+      "tenant-local-001",
+      "key-1",
+    );
+    expect(generateTrainingPageAiCandidatesMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        providerApiKeys: {
+          anthropicApiKey: "anthropic-key",
+          openAiApiKey: undefined,
+          geminiApiKey: undefined,
+        },
+      },
     );
   });
 

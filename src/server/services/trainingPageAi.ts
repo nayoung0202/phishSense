@@ -34,6 +34,22 @@ type OpenAiChatCompletionPayload = {
   };
 };
 
+type AnthropicMessagePayload = {
+  content?: Array<{
+    type?: string;
+    text?: string;
+  }>;
+  model?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  };
+  error?: {
+    type?: string;
+    message?: string;
+  };
+};
+
 type GenerateTrainingPageAiResult = {
   candidates: TrainingPageAiCandidate[];
   usage: {
@@ -43,6 +59,12 @@ type GenerateTrainingPageAiResult = {
     estimatedCredits: number;
     model: string;
   };
+};
+
+type TrainingPageAiProviderApiKeys = {
+  anthropicApiKey?: string;
+  openAiApiKey?: string;
+  geminiApiKey?: string;
 };
 
 type GeminiApiErrorPayload = {
@@ -99,6 +121,7 @@ const responseSchema = {
   required: ["candidates"],
 };
 const OPENAI_TRAINING_PAGE_AI_MODEL = "gpt-4.1-mini";
+const ANTHROPIC_TRAINING_PAGE_AI_MODEL = "claude-sonnet-4-20250514";
 const GEMINI_TRAINING_PAGE_AI_FALLBACK_MODELS = ["gemini-2.5-flash"] as const;
 
 const defaultTrainingPageReferenceHtml = `
@@ -383,7 +406,7 @@ const createProviderApiKeyMissingError = () =>
     status: 503,
     code: "ai_api_key_missing",
     message:
-      "서버에 AI API 키가 설정되지 않았습니다. .env 파일에 GEMINI_API_KEY 또는 OPENAI_API_KEY를 추가한 뒤 서버를 다시 시작하세요.",
+      "서버에 AI API 키가 설정되지 않았습니다. .env 파일에 ANTHROPIC_API_KEY, OPENAI_API_KEY 또는 GEMINI_API_KEY를 추가한 뒤 서버를 다시 시작하세요.",
   });
 
 const extractJsonText = (payload: unknown) => {
@@ -431,6 +454,35 @@ const extractOpenAiJsonText = (payload: unknown) => {
         .join("")
         .trim()
     : String(content ?? "").trim();
+
+  if (!text) {
+    throw new Error("empty_ai_response");
+  }
+
+  const fencedMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fencedMatch?.[1]?.trim()) {
+    return fencedMatch[1].trim();
+  }
+
+  const jsonStart = text.indexOf("{");
+  const jsonEnd = text.lastIndexOf("}");
+
+  if (jsonStart >= 0 && jsonEnd > jsonStart) {
+    return text.slice(jsonStart, jsonEnd + 1).trim();
+  }
+
+  return text;
+};
+
+const extractAnthropicJsonText = (payload: unknown) => {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("invalid_ai_response");
+  }
+
+  const text = ((payload as AnthropicMessagePayload).content ?? [])
+    .map((part) => (part.type === "text" ? part.text ?? "" : ""))
+    .join("")
+    .trim();
 
   if (!text) {
     throw new Error("empty_ai_response");
@@ -592,6 +644,33 @@ const buildOpenAiUserContent = (request: TrainingPageAiRequest) => {
   return content;
 };
 
+const buildAnthropicUserContent = (request: TrainingPageAiRequest) => {
+  const content: Array<
+    | { type: "text"; text: string }
+    | {
+        type: "image";
+        source: {
+          type: "base64";
+          media_type: string;
+          data: string;
+        };
+      }
+  > = [{ type: "text", text: buildTrainingPageAiPrompt(request) }];
+
+  if (request.referenceAttachment?.kind === "image" && request.referenceAttachment.base64Data) {
+    content.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: request.referenceAttachment.mimeType,
+        data: request.referenceAttachment.base64Data,
+      },
+    });
+  }
+
+  return content;
+};
+
 const requestGeminiCandidates = async (
   request: TrainingPageAiRequest,
   apiKey: string,
@@ -719,6 +798,138 @@ const requestOpenAiCandidates = async (request: TrainingPageAiRequest, apiKey: s
   throw lastError ?? createGeminiNetworkError();
 };
 
+const createAnthropicApiError = (responseStatus: number, rawText: string) => {
+  const normalizedText = rawText.trim();
+  let message = normalizedText;
+  let errorType = "";
+
+  if (normalizedText) {
+    try {
+      const parsed = JSON.parse(normalizedText) as AnthropicMessagePayload;
+      message = parsed.error?.message?.trim() ?? normalizedText;
+      errorType = parsed.error?.type?.trim() ?? "";
+    } catch {
+      // Ignore parsing failure and fall back to the raw body.
+    }
+  }
+
+  const isHighDemand =
+    responseStatus === 429 ||
+    responseStatus === 503 ||
+    responseStatus === 529 ||
+    errorType === "overloaded_error" ||
+    /overloaded|high demand|try again later/i.test(message);
+
+  if (isHighDemand) {
+    return createTrainingPageAiServiceError({
+      status: 503,
+      code: "anthropic_service_unavailable",
+      message: "AI 훈련안내페이지 생성 요청이 일시적으로 많습니다. 잠시 후 다시 시도하세요.",
+      retryable: true,
+    });
+  }
+
+  if (responseStatus >= 500) {
+    return createTrainingPageAiServiceError({
+      status: 503,
+      code: "anthropic_service_unavailable",
+      message: "AI 훈련안내페이지 생성 서비스가 일시적으로 불안정합니다. 잠시 후 다시 시도하세요.",
+      retryable: true,
+    });
+  }
+
+  if (responseStatus >= 400) {
+    return createTrainingPageAiServiceError({
+      status: 502,
+      code: "anthropic_api_error",
+      message: "AI 훈련안내페이지 생성 요청을 처리하지 못했습니다. 잠시 후 다시 시도하세요.",
+    });
+  }
+
+  return createTrainingPageAiServiceError({
+    status: 500,
+    code: "training_page_ai_generate_failed",
+    message: "AI 훈련안내페이지 생성에 실패했습니다.",
+  });
+};
+
+const createAnthropicNetworkError = () =>
+  createTrainingPageAiServiceError({
+    status: 503,
+    code: "anthropic_network_error",
+    message: "AI 훈련안내페이지 생성 서비스에 연결하지 못했습니다. 잠시 후 다시 시도하세요.",
+    retryable: true,
+  });
+
+const createAnthropicInvalidResponseError = () =>
+  createTrainingPageAiServiceError({
+    status: 502,
+    code: "anthropic_invalid_response",
+    message: "AI 훈련안내페이지 생성 응답이 올바르지 않습니다. 잠시 후 다시 시도하세요.",
+    retryable: true,
+  });
+
+const requestAnthropicCandidates = async (request: TrainingPageAiRequest, apiKey: string) => {
+  let lastError: TrainingPageAiServiceError | null = null;
+
+  for (let attempt = 0; attempt <= trainingPageAiRetryDelaysMs.length; attempt += 1) {
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model:
+            process.env.ANTHROPIC_TRAINING_PAGE_AI_MODEL?.trim() ||
+            ANTHROPIC_TRAINING_PAGE_AI_MODEL,
+          max_tokens: 8192,
+          messages: [
+            {
+              role: "user",
+              content: buildAnthropicUserContent(request),
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        lastError = createAnthropicApiError(response.status, await response.text());
+      } else {
+        try {
+          const payload = await response.json();
+          const text = extractAnthropicJsonText(payload);
+
+          JSON.parse(text);
+
+          return payload;
+        } catch (error) {
+          if (error instanceof TrainingPageAiServiceError) {
+            throw error;
+          }
+          throw createAnthropicInvalidResponseError();
+        }
+      }
+    } catch (error) {
+      if (error instanceof TrainingPageAiServiceError) {
+        lastError = error;
+      } else {
+        lastError = createAnthropicNetworkError();
+      }
+    }
+
+    if (!lastError.retryable || attempt === trainingPageAiRetryDelaysMs.length) {
+      throw lastError;
+    }
+
+    await sleep(trainingPageAiRetryDelaysMs[attempt]);
+  }
+
+  throw lastError ?? createAnthropicNetworkError();
+};
+
 export const buildTrainingPageAiPrompt = (request: TrainingPageAiRequest) => {
   const toneText = buildTrainingPageAiToneText(request);
   const mandatoryGuidance = buildTrainingPageAiMandatoryGuidance();
@@ -804,26 +1015,49 @@ const estimateCreditsFromUsage = (usage: GeminiUsageMetadata) => {
 
 export async function generateTrainingPageAiCandidates(
   request: TrainingPageAiRequest,
+  options?: {
+    providerApiKeys?: TrainingPageAiProviderApiKeys;
+  },
 ): Promise<GenerateTrainingPageAiResult> {
-  const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
-  const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
+  const providerApiKeys = options?.providerApiKeys;
+  const anthropicApiKey = providerApiKeys
+    ? providerApiKeys.anthropicApiKey?.trim()
+    : process.env.ANTHROPIC_API_KEY?.trim() || process.env.CLAUDE_API_KEY?.trim();
+  const openAiApiKey = providerApiKeys
+    ? providerApiKeys.openAiApiKey?.trim()
+    : process.env.OPENAI_API_KEY?.trim();
+  const geminiApiKey = providerApiKeys
+    ? providerApiKeys.geminiApiKey?.trim()
+    : process.env.GEMINI_API_KEY?.trim();
 
-  if (!openAiApiKey && !geminiApiKey) {
+  if (!anthropicApiKey && !openAiApiKey && !geminiApiKey) {
     throw createProviderApiKeyMissingError();
   }
 
-  const geminiResult = !openAiApiKey
-    ? await requestGeminiCandidates(request, geminiApiKey as string)
-    : null;
-  const payload = openAiApiKey
-    ? await requestOpenAiCandidates(request, openAiApiKey)
-    : geminiResult?.payload;
-  const responseModel = openAiApiKey
-    ? process.env.OPENAI_TRAINING_PAGE_AI_MODEL?.trim() || OPENAI_TRAINING_PAGE_AI_MODEL
-    : geminiResult?.model ?? DEFAULT_TRAINING_PAGE_AI_MODEL;
+  const provider = anthropicApiKey ? "anthropic" : openAiApiKey ? "openai" : "gemini";
+  const geminiResult =
+    provider === "gemini" ? await requestGeminiCandidates(request, geminiApiKey as string) : null;
+  const payload =
+    provider === "anthropic"
+      ? await requestAnthropicCandidates(request, anthropicApiKey as string)
+      : provider === "openai"
+        ? await requestOpenAiCandidates(request, openAiApiKey as string)
+        : geminiResult?.payload;
+  const responseModel =
+    provider === "anthropic"
+      ? process.env.ANTHROPIC_TRAINING_PAGE_AI_MODEL?.trim() ||
+        ANTHROPIC_TRAINING_PAGE_AI_MODEL
+      : provider === "openai"
+        ? process.env.OPENAI_TRAINING_PAGE_AI_MODEL?.trim() || OPENAI_TRAINING_PAGE_AI_MODEL
+        : geminiResult?.model ?? DEFAULT_TRAINING_PAGE_AI_MODEL;
 
   try {
-    const text = openAiApiKey ? extractOpenAiJsonText(payload) : extractJsonText(payload);
+    const text =
+      provider === "anthropic"
+        ? extractAnthropicJsonText(payload)
+        : provider === "openai"
+          ? extractOpenAiJsonText(payload)
+          : extractJsonText(payload);
     const parsed = JSON.parse(text) as {
       candidates?: Array<Partial<Omit<TrainingPageAiCandidate, "id">>>;
     };
@@ -847,7 +1081,15 @@ export async function generateTrainingPageAiCandidates(
     }
 
     const usage = estimateCreditsFromUsage(
-      openAiApiKey
+      provider === "anthropic"
+        ? {
+            promptTokenCount: (payload as AnthropicMessagePayload).usage?.input_tokens ?? 0,
+            candidatesTokenCount: (payload as AnthropicMessagePayload).usage?.output_tokens ?? 0,
+            totalTokenCount:
+              ((payload as AnthropicMessagePayload).usage?.input_tokens ?? 0) +
+              ((payload as AnthropicMessagePayload).usage?.output_tokens ?? 0),
+          }
+        : provider === "openai"
         ? {
             promptTokenCount: (payload as OpenAiChatCompletionPayload).usage?.prompt_tokens ?? 0,
             candidatesTokenCount:
@@ -869,6 +1111,8 @@ export async function generateTrainingPageAiCandidates(
       throw error;
     }
 
-    throw createGeminiInvalidResponseError();
+    throw provider === "anthropic"
+      ? createAnthropicInvalidResponseError()
+      : createGeminiInvalidResponseError();
   }
 }

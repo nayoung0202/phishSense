@@ -18,6 +18,10 @@ import {
   AiCreditGateError,
   executeWithAiCreditGate,
 } from "@/server/platform/aiCredits";
+import {
+  markTenantAiKeyUsed,
+  resolveTenantAiProviderKeys,
+} from "@/server/services/tenantAiKeys";
 
 class TrainingPageAiRequestParseError extends Error {
   status: number;
@@ -136,7 +140,26 @@ export async function POST(request: NextRequest) {
       request,
       kind: "training-page",
       usageContext: payload.usageContext,
-      action: () => generateTrainingPageAiCandidates(payload),
+      action: async ({ tenantId }) => {
+        const tenantKeys = await resolveTenantAiProviderKeys(tenantId, "training-page-ai");
+
+        if (tenantKeys.preferredKeyId) {
+          await markTenantAiKeyUsed(tenantId, tenantKeys.preferredKeyId);
+        }
+
+        return generateTrainingPageAiCandidates(
+          payload,
+          tenantKeys.hasAny
+            ? {
+                providerApiKeys: {
+                  anthropicApiKey: tenantKeys.anthropicApiKey,
+                  openAiApiKey: tenantKeys.openAiApiKey,
+                  geminiApiKey: tenantKeys.geminiApiKey,
+                },
+              }
+            : undefined,
+        );
+      },
     });
     return NextResponse.json(trainingPageAiGenerateResponseSchema.parse(result));
   } catch (error) {

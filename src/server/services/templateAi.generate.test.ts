@@ -102,6 +102,8 @@ const buildGeminiMalformedJsonResponse = () =>
 describe("generateTemplateAiCandidates", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("CLAUDE_API_KEY", "");
     vi.stubEnv("GEMINI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_API_KEY", "");
   });
@@ -167,6 +169,139 @@ describe("generateTemplateAiCandidates", () => {
       }),
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("ANTHROPIC_API_KEY가 있으면 Claude messages 엔드포인트를 사용한다", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-key");
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                candidates: [
+                  {
+                    subject: "후보 1",
+                    body: '<div><a href="{{LANDING_URL}}">확인</a></div>',
+                    maliciousPageContent:
+                      '<form action="{{TRAINING_URL}}"><input name="email" /><button type="submit">제출</button></form>',
+                    summary: "요약 1",
+                  },
+                ],
+              }),
+            },
+          ],
+          model: "claude-sonnet-4-20250514",
+          usage: {
+            input_tokens: 123,
+            output_tokens: 456,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      generateTemplateAiCandidates({
+        ...baseRequest,
+        generateCount: 1,
+      }),
+    ).resolves.toMatchObject({
+      candidates: expect.arrayContaining([
+        expect.objectContaining({
+          subject: "후보 1",
+        }),
+      ]),
+      usage: expect.objectContaining({
+        promptTokenCount: 123,
+        candidatesTokenCount: 456,
+        totalTokenCount: 579,
+        model: "claude-sonnet-4-20250514",
+      }),
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.anthropic.com/v1/messages",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "x-api-key": "anthropic-key",
+        }),
+      }),
+    );
+  });
+
+  it("providerApiKeys가 전달되면 env보다 tenant BYOK를 우선 사용한다", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    vi.stubEnv("OPENAI_API_KEY", "openai-key");
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                candidates: [
+                  {
+                    subject: "후보 1",
+                    body: '<div><a href="{{LANDING_URL}}">확인</a></div>',
+                    maliciousPageContent:
+                      '<form action="{{TRAINING_URL}}"><input name="email" /><button type="submit">제출</button></form>',
+                    summary: "요약 1",
+                  },
+                ],
+              }),
+            },
+          ],
+          usage: {
+            input_tokens: 10,
+            output_tokens: 20,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      generateTemplateAiCandidates(
+        {
+          ...baseRequest,
+          generateCount: 1,
+        },
+        {
+          providerApiKeys: {
+            anthropicApiKey: "tenant-anthropic-key",
+          },
+        },
+      ),
+    ).resolves.toMatchObject({
+      usage: expect.objectContaining({
+        model: "claude-sonnet-4-20250514",
+      }),
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.anthropic.com/v1/messages",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "x-api-key": "tenant-anthropic-key",
+        }),
+      }),
+    );
   });
 
   it("Gemini가 잘린 JSON을 반환해도 fallback 모델에서 복구한다", async () => {
