@@ -21,40 +21,45 @@ import { useFeatureFlags } from "@/components/FeatureFlagProvider";
 import { useI18n } from "@/components/I18nProvider";
 import { useSettingsTenant } from "@/features/settings/useSettingsTenant";
 import { getSettingsSidebarItems } from "@/features/settings/navigation";
+import type { TranslationKey } from "@/lib/i18n";
 
-const workspaceMenuItems: Array<{ label: string; href: Route; icon: typeof LayoutDashboard }> = [
+const workspaceMenuItems: Array<{
+  label: TranslationKey;
+  href: Route;
+  icon: typeof LayoutDashboard;
+}> = [
   {
-    label: "대시보드",
+    label: "nav.dashboard",
     href: "/" as Route,
     icon: LayoutDashboard,
   },
   {
-    label: "프로젝트",
+    label: "nav.projects",
     href: "/projects" as Route,
     icon: FolderKanban,
   },
   {
-    label: "훈련대상 관리",
+    label: "nav.targets",
     href: "/targets" as Route,
     icon: Users,
   },
   {
-    label: "템플릿 관리",
+    label: "nav.templates",
     href: "/templates" as Route,
     icon: FileText,
   },
   {
-    label: "훈련 안내 페이지",
+    label: "nav.trainingPages",
     href: "/training-pages" as Route,
     icon: BookOpen,
   },
   {
-    label: "보고서 관리",
+    label: "nav.reports",
     href: "/reports/settings" as Route,
     icon: FileBarChart,
   },
   {
-    label: "발송 설정",
+    label: "nav.smtpSettings",
     href: "/admin/smtp" as Route,
     icon: Mail,
   },
@@ -78,7 +83,7 @@ export function AppSidebar() {
         role: membership?.role ?? null,
         isLoading,
         billingUiEnabled,
-        byokUiEnabled,
+      byokUiEnabled,
       })
     : localizedWorkspaceMenuItems;
   const isMenuActive = (url: Route) =>
@@ -87,7 +92,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-6">
-        <Link href="/" data-testid="link-logo" aria-label={t("대시보드로 이동")} className="inline-flex">
+        <Link href="/" data-testid="link-logo" aria-label={t("nav.goDashboard")} className="inline-flex">
           <div className="flex items-center gap-2">
             <div
               className="text-[20pt] font-bold tracking-tight"
@@ -102,7 +107,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>
-            {isSettingsSidebar ? t("settings.title") : t("Workspace")}
+            {isSettingsSidebar ? t("settings.title") : t("nav.workspace")}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

@@ -7,6 +7,7 @@ import {
   Users2,
   type LucideIcon,
 } from "lucide-react";
+import type { TranslationKey, TranslationValue } from "@/lib/i18n";
 
 export type SettingsSidebarItem = {
   href: Route;
@@ -16,7 +17,7 @@ export type SettingsSidebarItem = {
 };
 
 export function getSettingsSidebarItems(options: {
-  t: (key: string) => string;
+  t: (key: TranslationKey, values?: Record<string, TranslationValue>) => string;
   role: string | null;
   isLoading: boolean;
   billingUiEnabled: boolean;
@@ -27,7 +28,7 @@ export function getSettingsSidebarItems(options: {
   const canViewCredits = isLoading || role === "OWNER" || role === "ADMIN";
   const canManageAiKeys = isLoading || role === "OWNER";
 
-  return [
+  const items: SettingsSidebarItem[] = [
     {
       href: "/settings/general" as Route,
       key: "general",
@@ -58,7 +59,9 @@ export function getSettingsSidebarItems(options: {
       label: t("settings.apiKeys"),
       icon: KeyRound,
     },
-  ].filter((item) => {
+  ];
+
+  return items.filter((item) => {
     if (item.key === "subscription") {
       return billingUiEnabled && canManageBilling;
     }

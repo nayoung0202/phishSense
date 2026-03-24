@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import {
   TEMPLATE_AI_REFERENCE_ATTACHMENT_ACCEPT,
-  templateAiToneLabels,
   templateAiToneOptions,
   validateTemplateAiReferenceAttachmentMeta,
 } from "@shared/templateAi";
@@ -29,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/components/I18nProvider";
 
 type GenerateResponse = {
   candidates: TrainingPageAiCandidate[];
@@ -55,9 +55,9 @@ const candidateDialogContentClass =
   "w-[min(94vw,1120px)] max-w-[1120px] h-[88vh] overflow-hidden p-5";
 const focusedDialogContentClass = "max-w-5xl h-[88vh] overflow-hidden";
 
-const getGenerateErrorMessage = (error: unknown) => {
+const getGenerateErrorMessage = (error: unknown, fallbackMessage: string) => {
   if (!(error instanceof Error)) {
-    return "AI 훈련안내페이지 생성 중 오류가 발생했습니다.";
+    return fallbackMessage;
   }
 
   const matchedBody = error.message.match(/^\d{3}:\s*([\s\S]+)$/)?.[1]?.trim();
@@ -76,6 +76,7 @@ const getGenerateErrorMessage = (error: unknown) => {
 };
 
 export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
+  const { t } = useI18n();
   const router = useRouter();
   const [step, setStep] = useState<DialogStep>("options");
   const [tone, setTone] = useState<(typeof templateAiToneOptions)[number]>(DEFAULT_TONE);
@@ -92,6 +93,25 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
   const maxPairPage = Math.max(0, Math.ceil(candidates.length / 2) - 1);
   const selectedCandidate =
     candidates.find((candidate) => candidate.id === selectedCandidateId) ?? null;
+  const toneLabels = {
+    formal: t("templateAi.tone.formal"),
+    informational: t("templateAi.tone.informational"),
+    "internal-notice": t("templateAi.tone.internalNotice"),
+    "urgent-request": t("templateAi.tone.urgentRequest"),
+  } as const;
+
+  const translateAttachmentError = (message: string) => {
+    if (message === "빈 파일은 업로드할 수 없습니다.") {
+      return t("templateAi.emptyFile");
+    }
+    if (message === "첨부파일은 2MB 이하만 업로드할 수 있습니다.") {
+      return t("templateAi.attachmentSizeLimit");
+    }
+    if (message === "이미지(PNG/JPEG/WEBP/GIF) 또는 HTML 파일만 업로드할 수 있습니다.") {
+      return t("templateAi.attachmentTypeLimit");
+    }
+    return message;
+  };
 
   const resetDialogState = () => {
     setStep("options");
@@ -173,7 +193,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
 
     if (validationMessage) {
       setReferenceAttachment(null);
-      setAttachmentError(validationMessage);
+      setAttachmentError(translateAttachmentError(validationMessage));
       return;
     }
 
@@ -232,7 +252,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
 
     return (
       <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-        {attachmentError ?? getGenerateErrorMessage(generateMutation.error)}
+        {attachmentError ?? getGenerateErrorMessage(generateMutation.error, t("trainingPageAi.generateErrorFallback"))}
       </div>
     );
   };
@@ -241,22 +261,22 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <Card className="space-y-4 p-5">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">1단계. 생성 조건 설정</h3>
+          <h3 className="text-lg font-semibold">{t("trainingPageAi.optionsStepTitle")}</h3>
           <p className="text-sm text-muted-foreground">
-            문체를 선택하면 AI가 훈련안내페이지 제목과 안내 구성을 자동으로 생성합니다.
+            {t("trainingPageAi.optionsStepDescription")}
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label>문체</Label>
+          <Label>{t("trainingPageAi.toneLabel")}</Label>
           <Select value={tone} onValueChange={(value) => setTone(value as typeof tone)}>
             <SelectTrigger>
-              <SelectValue placeholder="문체를 선택해 주세요" />
+              <SelectValue placeholder={t("trainingPageAi.tonePlaceholder")} />
             </SelectTrigger>
             <SelectContent>
               {templateAiToneOptions.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {templateAiToneLabels[option]}
+                  {toneLabels[option]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -264,44 +284,43 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="training-page-ai-prompt">추가 요청사항</Label>
+          <Label htmlFor="training-page-ai-prompt">{t("trainingPageAi.additionalRequestLabel")}</Label>
           <Textarea
             id="training-page-ai-prompt"
-            aria-label="추가 요청사항"
+            aria-label={t("trainingPageAi.additionalRequestLabel")}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder="강조하고 싶은 학습 포인트나 꼭 포함하고 싶은 안내 문구를 입력해 주세요"
+            placeholder={t("trainingPageAi.additionalRequestPlaceholder")}
             className="min-h-[140px]"
             maxLength={800}
           />
-          <p className="text-xs text-muted-foreground">{prompt.length}/800자</p>
+          <p className="text-xs text-muted-foreground">{prompt.length}/800</p>
         </div>
       </Card>
 
       <div className="space-y-4">
         <Card className="space-y-3 p-5">
           <div className="space-y-2">
-            <Label htmlFor="training-page-ai-reference">훈련안내페이지 첨부파일</Label>
+            <Label htmlFor="training-page-ai-reference">{t("trainingPageAi.attachmentLabel")}</Label>
             <Input
               key={`${fileInputResetKey}-reference`}
               id="training-page-ai-reference"
-              aria-label="훈련안내페이지 첨부파일"
+              aria-label={t("trainingPageAi.attachmentLabel")}
               type="file"
               accept={TEMPLATE_AI_REFERENCE_ATTACHMENT_ACCEPT}
               onChange={(event) => handleReferenceAttachmentChange(event.target.files)}
             />
             <p className="text-xs text-muted-foreground">
-              이미지(PNG/JPEG/WEBP/GIF) 또는 HTML 파일 1개를 업로드할 수 있습니다. 최대 2MB.
+              {t("templateAi.attachmentHelp")}
             </p>
             {referenceAttachment ? (
-              <p className="text-xs text-slate-700">선택된 파일: {referenceAttachment.name}</p>
+              <p className="text-xs text-slate-700">{t("templateAi.selectedFile", { file: referenceAttachment.name })}</p>
             ) : null}
           </div>
         </Card>
 
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-          피싱 대응 기본 수칙은 자동으로 포함됩니다. 메일 링크를 바로 누르지 말고 공식 사이트나
-          공식 앱에 직접 접속해 확인하라는 안내가 기본 포함됩니다.
+          {t("trainingPageAi.defaultSafetyNotice")}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -314,7 +333,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
             ) : (
               <Sparkles className="mr-2 h-4 w-4" />
             )}
-            AI 훈련안내페이지 생성
+            {t("trainingPageAi.generateButton")}
           </Button>
           {candidates.length > 0 ? (
             <Button
@@ -323,7 +342,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
               disabled={generateMutation.isPending}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              후보 비교로 돌아가기
+              {t("trainingPageAi.backToCandidates")}
             </Button>
           ) : null}
         </div>
@@ -334,12 +353,12 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
   );
 
   const renderCandidatesStep = () => (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">2단계. 후보 비교 및 선택</h3>
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-1">
+          <h3 className="text-lg font-semibold">{t("trainingPageAi.candidatesStepTitle")}</h3>
           <p className="text-sm text-muted-foreground">
-            후보 4개를 비교하고 하나를 선택해 새 훈련안내페이지 작성 화면에 반영합니다.
+            {t("trainingPageAi.candidatesStepDescription")}
           </p>
         </div>
 
@@ -351,7 +370,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
             className="shrink-0"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            옵션 다시 설정
+            {t("trainingPageAi.backToOptions")}
           </Button>
           <Button
             variant="outline"
@@ -360,7 +379,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
             className="shrink-0"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            전체 재생성
+            {t("trainingPageAi.regenerateAll")}
           </Button>
           <Button
             variant="outline"
@@ -369,7 +388,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
             className="shrink-0"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            선택 제외 나머지 재생성
+            {t("trainingPageAi.regenerateExceptSelected")}
           </Button>
           <Button
             variant="secondary"
@@ -377,7 +396,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
             disabled={!selectedCandidate || generateMutation.isPending}
             className="shrink-0"
           >
-            선택 후보 반영
+            {t("trainingPageAi.applySelected")}
           </Button>
         </div>
       </div>
@@ -386,7 +405,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          {candidates.length === 0 ? "후보가 없습니다." : `${pairPage + 1} / ${maxPairPage + 1}`}
+          {candidates.length === 0 ? t("trainingPageAi.noCandidates") : `${pairPage + 1} / ${maxPairPage + 1}`}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -395,7 +414,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
             onClick={() => setPairPage((current) => Math.max(0, current - 1))}
             disabled={pairPage === 0}
           >
-            이전 2개
+            {t("trainingPageAi.previousTwo")}
           </Button>
           <Button
             variant="outline"
@@ -403,14 +422,14 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
             onClick={() => setPairPage((current) => Math.min(maxPairPage, current + 1))}
             disabled={pairPage >= maxPairPage}
           >
-            다음 2개
+            {t("trainingPageAi.nextTwo")}
           </Button>
         </div>
       </div>
 
       {visibleCandidates.length === 0 ? (
         <Card className="p-8 text-center text-sm text-muted-foreground">
-          생성된 후보가 없습니다. 옵션을 다시 설정하고 훈련안내페이지를 생성해 주세요.
+          {t("trainingPageAi.noGeneratedCandidates")}
         </Card>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
@@ -432,7 +451,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
                     size="sm"
                     onClick={() => setSelectedCandidateId(candidate.id)}
                   >
-                    {isSelected ? "선택됨" : "이 후보 선택"}
+                    {isSelected ? t("trainingPageAi.selected") : t("trainingPageAi.selectCandidate")}
                   </Button>
                 </div>
 
@@ -449,7 +468,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
                 <div className="flex justify-end">
                   <Button variant="ghost" size="sm" onClick={() => setFocusedCandidate(candidate)}>
                     <Eye className="mr-2 h-4 w-4" />
-                    크게 보기
+                    {t("trainingPageAi.zoomPreview")}
                   </Button>
                 </div>
               </Card>
@@ -472,11 +491,11 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
           }
         >
           <DialogHeader>
-            <DialogTitle>AI 훈련안내페이지 생성</DialogTitle>
+            <DialogTitle>{t("trainingPageAi.dialogTitle")}</DialogTitle>
             <DialogDescription>
               {step === "options"
-                ? "생성 조건을 입력하고 훈련안내페이지 후보를 생성합니다."
-                : "후보를 비교하고 하나를 선택해 새 훈련안내페이지 작성 화면에 반영합니다."}
+                ? t("trainingPageAi.dialogDescriptionOptions")
+                : t("trainingPageAi.dialogDescriptionCandidates")}
             </DialogDescription>
           </DialogHeader>
 
@@ -490,7 +509,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
       >
         <DialogContent className={focusedDialogContentClass}>
           <DialogHeader>
-            <DialogTitle>{focusedCandidate?.name ?? "후보 미리보기"}</DialogTitle>
+            <DialogTitle>{focusedCandidate?.name ?? t("trainingPageAi.previewTitle")}</DialogTitle>
             <DialogDescription>{focusedCandidate?.summary ?? ""}</DialogDescription>
           </DialogHeader>
           {focusedCandidate ? (

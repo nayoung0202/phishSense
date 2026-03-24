@@ -15,7 +15,7 @@ export function SettingsShell({ children }: { children: ReactNode }) {
       <div className="mx-auto max-w-7xl px-6 py-8">
         <Card className="border-white/10 bg-card/80 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.24)] backdrop-blur">
           <p className="text-xs font-medium uppercase tracking-[0.24em] text-primary/80">
-            {t("Workspace")}
+            {t("nav.workspace")}
           </p>
           <h1 className="mt-3 text-3xl font-black tracking-tight text-foreground">
             {t("settings.title")}

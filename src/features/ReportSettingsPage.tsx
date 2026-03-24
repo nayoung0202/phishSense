@@ -71,7 +71,7 @@ export default function ReportSettingsPage() {
     queryFn: async () => {
       const response = await fetch(`/api/reports/settings?page=${page}&pageSize=10`);
       if (!response.ok) {
-        throw new Error(t("보고서 설정 목록을 불러오지 못했습니다."));
+        throw new Error(t("reports.listLoadFailed"));
       }
       return (await response.json()) as ReportSettingsResponse;
     },
@@ -93,7 +93,7 @@ export default function ReportSettingsPage() {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error ?? t("보고서 설정 저장에 실패했습니다."));
+        throw new Error(payload.error ?? t("reports.saveFailed"));
       }
       return response.json();
     },
@@ -105,12 +105,12 @@ export default function ReportSettingsPage() {
       setApproverName("");
       setIsDefault(false);
       setLogoFile(null);
-      toast({ title: t("저장 완료"), description: t("보고서 설정을 추가했습니다.") });
+      toast({ title: t("reports.saveSuccess"), description: t("reports.settingCreated") });
     },
     onError: (error) => {
       toast({
-        title: t("저장 실패"),
-        description: error instanceof Error ? error.message : t("보고서 설정 저장에 실패했습니다."),
+        title: t("reports.saveFailed"),
+        description: error instanceof Error ? error.message : t("reports.saveFailed"),
         variant: "destructive",
       });
     },
@@ -123,18 +123,18 @@ export default function ReportSettingsPage() {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error ?? t("기본 설정 변경에 실패했습니다."));
+        throw new Error(payload.error ?? t("reports.defaultFailed"));
       }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["report-settings"] });
-      toast({ title: t("변경 완료"), description: t("기본 보고서 설정을 변경했습니다.") });
+      toast({ title: t("reports.defaultSuccess"), description: t("reports.defaultUpdated") });
     },
     onError: (error) => {
       toast({
-        title: t("변경 실패"),
-        description: error instanceof Error ? error.message : t("기본 설정 변경에 실패했습니다."),
+        title: t("reports.defaultFailed"),
+        description: error instanceof Error ? error.message : t("reports.defaultFailed"),
         variant: "destructive",
       });
     },
@@ -143,7 +143,7 @@ export default function ReportSettingsPage() {
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!editingId) {
-        throw new Error(t("수정할 설정 ID가 없습니다."));
+        throw new Error(t("reports.editMissingId"));
       }
       const formData = new FormData();
       formData.set("name", editName);
@@ -159,7 +159,7 @@ export default function ReportSettingsPage() {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error ?? t("보고서 설정 수정에 실패했습니다."));
+        throw new Error(payload.error ?? t("reports.editFailed"));
       }
       return response.json();
     },
@@ -172,12 +172,12 @@ export default function ReportSettingsPage() {
       setEditApproverName("");
       setEditIsDefault(false);
       setEditLogoFile(null);
-      toast({ title: t("수정 완료"), description: t("보고서 설정을 수정했습니다.") });
+      toast({ title: t("reports.editSuccess"), description: t("reports.settingUpdated") });
     },
     onError: (error) => {
       toast({
-        title: t("수정 실패"),
-        description: error instanceof Error ? error.message : t("보고서 설정 수정에 실패했습니다."),
+        title: t("reports.editFailed"),
+        description: error instanceof Error ? error.message : t("reports.editFailed"),
         variant: "destructive",
       });
     },
@@ -217,10 +217,10 @@ export default function ReportSettingsPage() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{t("보고서 관리")}</h1>
+        <h1 className="text-3xl font-bold">{t("reports.title")}</h1>
         <Button onClick={() => setIsCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          {t("설정 추가")}
+          {t("reports.addSetting")}
         </Button>
       </div>
 
@@ -228,19 +228,19 @@ export default function ReportSettingsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t("설정명")}</TableHead>
-              <TableHead>{locale === "en" ? "Company" : locale === "ja" ? "会社名" : "회사명"}</TableHead>
-              <TableHead>{locale === "en" ? "Approver" : locale === "ja" ? "承認者" : "승인자"}</TableHead>
-              <TableHead>{locale === "en" ? "Default" : locale === "ja" ? "既定" : "기본"}</TableHead>
-              <TableHead>{locale === "en" ? "Created at" : locale === "ja" ? "作成日" : "생성일"}</TableHead>
-              <TableHead className="text-right">{locale === "en" ? "Actions" : locale === "ja" ? "操作" : "동작"}</TableHead>
+              <TableHead>{t("reports.settingName")}</TableHead>
+              <TableHead>{t("common.company")}</TableHead>
+              <TableHead>{t("common.approver")}</TableHead>
+              <TableHead>{t("common.default")}</TableHead>
+              <TableHead>{t("common.createdAt")}</TableHead>
+              <TableHead className="text-right">{t("common.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground">
-                  {t("등록된 보고서 설정이 없습니다.")}
+                  {t("reports.empty")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -249,7 +249,7 @@ export default function ReportSettingsPage() {
                   <TableCell>{item.name}</TableCell>
                   <TableCell>{item.companyName}</TableCell>
                   <TableCell>{item.approverName}</TableCell>
-                  <TableCell>{item.isDefault ? <Badge>{locale === "en" ? "Default" : locale === "ja" ? "既定" : "기본"}</Badge> : <Badge variant="outline">-</Badge>}</TableCell>
+                  <TableCell>{item.isDefault ? <Badge>{t("common.default")}</Badge> : <Badge variant="outline">-</Badge>}</TableCell>
                   <TableCell>{item.createdAt ? new Date(item.createdAt).toLocaleDateString(intlLocale) : "-"}</TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -258,7 +258,7 @@ export default function ReportSettingsPage() {
                       className="mr-2"
                       onClick={() => openEditDialog(item)}
                     >
-                      {t("수정")}
+                      {t("common.edit")}
                     </Button>
                     <Button
                       size="sm"
@@ -266,7 +266,7 @@ export default function ReportSettingsPage() {
                       disabled={item.isDefault || setDefaultMutation.isPending}
                       onClick={() => setDefaultMutation.mutate(item.id)}
                     >
-                      {t("기본 설정")}
+                      {t("common.default")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -282,7 +282,7 @@ export default function ReportSettingsPage() {
             disabled={page <= 1}
             onClick={() => setPage((prev) => Math.max(1, prev - 1))}
           >
-            {locale === "en" ? "Previous" : locale === "ja" ? "前へ" : "이전"}
+            {t("common.previous")}
           </Button>
           <span className="text-sm text-muted-foreground">
             {page} / {totalPages}
@@ -293,7 +293,7 @@ export default function ReportSettingsPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
           >
-            {locale === "en" ? "Next" : locale === "ja" ? "次へ" : "다음"}
+            {t("common.next")}
           </Button>
         </div>
       </Card>
@@ -301,24 +301,24 @@ export default function ReportSettingsPage() {
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>{t("보고서 설정 추가")}</DialogTitle>
-            <DialogDescription>{locale === "en" ? "Register company, logo, and approver information." : locale === "ja" ? "会社名、ロゴ、承認者情報を登録します。" : "회사명, 로고, 승인자 정보를 등록합니다."}</DialogDescription>
+            <DialogTitle>{t("reports.createTitle")}</DialogTitle>
+            <DialogDescription>{t("reports.createDescription")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label>{t("설정명")}</Label>
+              <Label>{t("reports.settingName")}</Label>
               <Input value={name} onChange={(event) => setName(event.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>{locale === "en" ? "Company" : locale === "ja" ? "会社名" : "회사명"}</Label>
+              <Label>{t("common.company")}</Label>
               <Input value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>{locale === "en" ? "Approver name" : locale === "ja" ? "承認者名" : "승인자명"}</Label>
+              <Label>{t("common.approverName")}</Label>
               <Input value={approverName} onChange={(event) => setApproverName(event.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>{locale === "en" ? "Company logo (PNG/JPEG, up to 5MB)" : locale === "ja" ? "会社ロゴ (PNG/JPEG、5MB以下)" : "회사 로고 (PNG/JPEG, 5MB 이하)"}</Label>
+              <Label>{t("reports.logoRequired")}</Label>
               <Input
                 type="file"
                 accept="image/png,image/jpeg"
@@ -331,25 +331,17 @@ export default function ReportSettingsPage() {
                 checked={isDefault}
                 onChange={(event) => setIsDefault(event.target.checked)}
               />
-              {t("기본 설정으로 저장")}
+              {t("reports.saveAsDefault")}
             </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-              {locale === "en" ? "Cancel" : locale === "ja" ? "キャンセル" : "취소"}
+              {t("common.cancel")}
             </Button>
             <Button onClick={() => createMutation.mutate()} disabled={!canSubmit || createMutation.isPending}>
               {createMutation.isPending
-                ? locale === "en"
-                  ? "Saving..."
-                  : locale === "ja"
-                    ? "保存中..."
-                    : "저장 중..."
-                : locale === "en"
-                  ? "Save"
-                  : locale === "ja"
-                    ? "保存"
-                    : "저장"}
+                ? t("common.saveProgress")
+                : t("common.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -358,24 +350,24 @@ export default function ReportSettingsPage() {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>{t("보고서 설정 수정")}</DialogTitle>
-            <DialogDescription>{locale === "en" ? "Update only the fields you need and save." : locale === "ja" ? "必要な項目だけ修正して保存してください。" : "필요한 항목만 수정하고 저장하세요."}</DialogDescription>
+            <DialogTitle>{t("reports.editTitle")}</DialogTitle>
+            <DialogDescription>{t("reports.editDescription")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label>{t("설정명")}</Label>
+              <Label>{t("reports.settingName")}</Label>
               <Input value={editName} onChange={(event) => setEditName(event.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>{locale === "en" ? "Company" : locale === "ja" ? "会社名" : "회사명"}</Label>
+              <Label>{t("common.company")}</Label>
               <Input value={editCompanyName} onChange={(event) => setEditCompanyName(event.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>{locale === "en" ? "Approver name" : locale === "ja" ? "承認者名" : "승인자명"}</Label>
+              <Label>{t("common.approverName")}</Label>
               <Input value={editApproverName} onChange={(event) => setEditApproverName(event.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>{locale === "en" ? "Company logo (PNG/JPEG, up to 5MB, optional)" : locale === "ja" ? "会社ロゴ (PNG/JPEG、5MB以下、任意)" : "회사 로고 (PNG/JPEG, 5MB 이하, 선택)"}</Label>
+              <Label>{t("reports.logoOptional")}</Label>
               <Input
                 type="file"
                 accept="image/png,image/jpeg"
@@ -388,25 +380,17 @@ export default function ReportSettingsPage() {
                 checked={editIsDefault}
                 onChange={(event) => setEditIsDefault(event.target.checked)}
               />
-              {t("기본 설정으로 저장")}
+              {t("reports.saveAsDefault")}
             </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
-              {locale === "en" ? "Cancel" : locale === "ja" ? "キャンセル" : "취소"}
+              {t("common.cancel")}
             </Button>
             <Button onClick={() => updateMutation.mutate()} disabled={!canEditSubmit || updateMutation.isPending}>
               {updateMutation.isPending
-                ? locale === "en"
-                  ? "Saving..."
-                  : locale === "ja"
-                    ? "保存中..."
-                    : "저장 중..."
-                : locale === "en"
-                  ? "Save"
-                  : locale === "ja"
-                    ? "保存"
-                    : "저장"}
+                ? t("common.saveProgress")
+                : t("common.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

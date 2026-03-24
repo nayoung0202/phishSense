@@ -10,18 +10,21 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
+  formatMessage,
   getMessages,
   LOCALE_COOKIE_NAME,
   localeLabels,
   resolveLocale,
   type AppLocale,
+  type TranslationKey,
+  type TranslationValue,
 } from "@/lib/i18n";
 
 type I18nContextValue = {
   locale: AppLocale;
   localeLabels: typeof localeLabels;
   setLocale: (locale: AppLocale) => void;
-  t: (key: string) => string;
+  t: (key: TranslationKey, values?: Record<string, TranslationValue>) => string;
 };
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -54,7 +57,7 @@ export function I18nProvider({
           router.refresh();
         });
       },
-      t: (key) => messages[key] ?? key,
+      t: (key, values) => formatMessage(messages, key, values),
     };
   }, [locale, router]);
 

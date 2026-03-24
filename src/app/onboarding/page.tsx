@@ -1,6 +1,12 @@
+import { cookies } from "next/headers";
 import Onboarding from "@/features/Onboarding";
+import { getMessages, LOCALE_COOKIE_NAME, resolveLocale } from "@/lib/i18n";
 
-export default function OnboardingPage() {
+export default async function OnboardingPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value ?? null);
+  const messages = getMessages(locale);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="mx-auto w-full max-w-lg px-6">
@@ -24,13 +30,13 @@ export default function OnboardingPage() {
           </div>
 
           <h1 className="mb-4 text-center text-xl font-semibold text-foreground">
-            이용 준비하기
+            {messages["onboarding.pageTitle"]}
           </h1>
 
           <p className="mb-8 text-center text-sm text-muted-foreground">
-            회사 또는 조직과 이용 권한을 확인한 뒤
+            {messages["onboarding.pageDescriptionLine1"]}
             <br />
-            PhishSense 이용 준비를 진행합니다.
+            {messages["onboarding.pageDescriptionLine2"]}
           </p>
 
           <Onboarding />

@@ -81,7 +81,7 @@ export default function Templates() {
   });
 
   const handleDelete = (id: string) => {
-    if (confirm(t("정말 삭제하시겠습니까?"))) {
+    if (confirm(t("common.confirmDelete"))) {
       deleteMutation.mutate(id);
     }
   };
@@ -144,19 +144,19 @@ export default function Templates() {
       >
         <DialogContent className="max-w-3xl" data-testid="dialog-template-preview">
           <DialogHeader>
-            <DialogTitle>{previewTemplate?.name ?? t("템플릿 미리보기")}</DialogTitle>
+            <DialogTitle>{previewTemplate?.name ?? t("templates.previewTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
-                {previewTemplate?.subject ?? t("템플릿 제목이 없습니다.")}
+                {previewTemplate?.subject ?? t("templates.noSubject")}
               </p>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className={previewTheme === "light" ? "text-foreground font-semibold" : ""}>{t("라이트")}</span>
+                <span className={previewTheme === "light" ? "text-foreground font-semibold" : ""}>{t("common.light")}</span>
                 <Switch
                   checked={previewTheme === "dark"}
                   onCheckedChange={(checked) => setPreviewTheme(checked ? "dark" : "light")}
-                  aria-label={t("미리보기 테마 전환")}
+                  aria-label={t("common.previewThemeToggle")}
                   thumbIcon={
                     previewTheme === "dark" ? (
                       <Moon className="h-3 w-3" />
@@ -165,13 +165,13 @@ export default function Templates() {
                     )
                   }
                 />
-                <span className={previewTheme === "dark" ? "text-foreground font-semibold" : ""}>{t("다크")}</span>
+                <span className={previewTheme === "dark" ? "text-foreground font-semibold" : ""}>{t("common.dark")}</span>
               </div>
             </div>
             <Tabs defaultValue="body" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="body">{t("메일 본문")}</TabsTrigger>
-                <TabsTrigger value="malicious">{t("악성 메일 본문")}</TabsTrigger>
+                <TabsTrigger value="body">{t("templates.emailBody")}</TabsTrigger>
+                <TabsTrigger value="malicious">{t("templates.maliciousBody")}</TabsTrigger>
               </TabsList>
               <TabsContent value="body">
                 <div className={previewScrollableSurfaceClass}>
@@ -183,17 +183,17 @@ export default function Templates() {
                         className="rounded-md shadow-sm"
                       />
                     ) : (
-                      <p className={`text-sm ${previewMutedClass}`}>{t("메일 본문이 없습니다.")}</p>
+                      <p className={`text-sm ${previewMutedClass}`}>{t("templates.noEmailBody")}</p>
                     )
                   ) : (
-                    <p className={`text-sm ${previewMutedClass}`}>{t("미리볼 템플릿을 선택하세요.")}</p>
+                    <p className={`text-sm ${previewMutedClass}`}>{t("templates.selectPreview")}</p>
                   )}
                 </div>
               </TabsContent>
               <TabsContent value="malicious">
                 {previewTemplate && (previewMaliciousHasTrainingToken || previewMaliciousHasSubmitToken) && (
                   <p className={`mb-2 text-xs ${previewMutedClass}`}>
-                    {t("훈련/제출 링크가 치환된 미리보기입니다.")}
+                    {t("templates.linksReplaced")}
                   </p>
                 )}
                 <div className={previewScrollableSurfaceClass}>
@@ -205,10 +205,10 @@ export default function Templates() {
                         className="rounded-md shadow-sm"
                       />
                     ) : (
-                      <p className={`text-sm ${previewMutedClass}`}>{t("악성 메일 본문이 없습니다.")}</p>
+                      <p className={`text-sm ${previewMutedClass}`}>{t("templates.noMaliciousBody")}</p>
                     )
                   ) : (
-                    <p className={`text-sm ${previewMutedClass}`}>{t("미리볼 템플릿을 선택하세요.")}</p>
+                    <p className={`text-sm ${previewMutedClass}`}>{t("templates.selectPreview")}</p>
                   )}
                 </div>
               </TabsContent>
@@ -223,7 +223,7 @@ export default function Templates() {
       <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold mb-2">{t("템플릿 관리")}</h1>
+          <h1 className="text-4xl font-bold mb-2">{t("templates.title")}</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -233,12 +233,12 @@ export default function Templates() {
             onClick={() => setIsAiGenerateOpen(true)}
           >
             <Sparkles className="w-4 h-4 mr-2" />
-            {t("AI 템플릿 생성")}
+            {t("templates.generateAi")}
           </Button>
           <Link href="/templates/new">
             <Button data-testid="button-new-template">
               <Plus className="w-4 h-4 mr-2" />
-              {t("새 템플릿 생성")}
+              {t("templates.create")}
             </Button>
           </Link>
         </div>
@@ -248,7 +248,7 @@ export default function Templates() {
         <div className="mb-6 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder={t("템플릿명/제목/내용으로 검색...")}
+            placeholder={t("templates.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -260,7 +260,7 @@ export default function Templates() {
           <div className="text-center py-12">{t("common.loading")}</div>
         ) : filteredTemplates.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            {t("템플릿이 없습니다")}
+            {t("templates.empty")}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -295,13 +295,13 @@ export default function Templates() {
                     </div>
                     <div className="space-y-3 rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
                       <div>
-                        <p className="text-xs font-semibold text-foreground">{t("메일 본문")}</p>
+                        <p className="text-xs font-semibold text-foreground">{t("templates.emailBody")}</p>
                         <p>
                           <SafeText value={getSnippet(template.body)} fallback="-" />
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold text-foreground">{t("악성 메일 본문")}</p>
+                        <p className="text-xs font-semibold text-foreground">{t("templates.maliciousBody")}</p>
                         <p>
                           <SafeText value={getSnippet(template.maliciousPageContent)} fallback="-" />
                         </p>
@@ -315,11 +315,12 @@ export default function Templates() {
                             : "bg-red-100 text-red-700"
                         }
                       >
-                        {locale === "en"
-                          ? `Email: ${mailStatus === "ok" ? "Included" : "Missing"}`
-                          : locale === "ja"
-                            ? `メール: ${mailStatus === "ok" ? "含まれる" : "欠落"}`
-                            : `메일: ${mailStatus === "ok" ? "포함됨" : "누락"}`}
+                        {t("templates.emailStatus", {
+                          status:
+                            mailStatus === "ok"
+                              ? t("templates.statusIncluded")
+                              : t("templates.statusMissing"),
+                        })}
                       </Badge>
                       <Badge
                         className={
@@ -328,26 +329,23 @@ export default function Templates() {
                             : "bg-red-100 text-red-700"
                         }
                       >
-                        {locale === "en"
-                          ? `Malicious: ${maliciousStatus === "ok" ? "Included" : "Missing"}`
-                          : locale === "ja"
-                            ? `悪性: ${maliciousStatus === "ok" ? "含まれる" : "欠落"}`
-                            : `악성: ${maliciousStatus === "ok" ? "포함됨" : "누락"}`}
+                        {t("templates.maliciousStatus", {
+                          status:
+                            maliciousStatus === "ok"
+                              ? t("templates.statusIncluded")
+                              : t("templates.statusMissing"),
+                        })}
                       </Badge>
                       {isInvalid && (
                         <span className="text-xs text-muted-foreground">
-                          {locale === "en"
-                            ? "Cannot save/send"
-                            : locale === "ja"
-                              ? "保存/送信不可"
-                              : "저장/발송 불가"}
+                          {t("templates.cannotSaveOrSend")}
                         </span>
                       )}
                     </div>
 
                     <div className="pt-4 border-t border-border">
                       <p className="text-xs text-muted-foreground mb-3">
-                        {t("최근 수정:")} {formatDate(template.updatedAt!)}
+                        {t("common.updatedAt")} {formatDate(template.updatedAt!)}
                       </p>
                       <div className="flex items-center gap-2">
                         <Button
@@ -357,7 +355,7 @@ export default function Templates() {
                           data-testid={`button-preview-${template.id}`}
                         >
                           <Eye className="w-4 h-4 mr-2" />
-                          {t("미리보기")}
+                          {t("common.preview")}
                         </Button>
                         <Link href={`/templates/${template.id}/edit`}>
                           <Button variant="outline" size="sm" data-testid={`button-edit-${template.id}`}>

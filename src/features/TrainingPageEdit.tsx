@@ -26,11 +26,13 @@ import {
   TRAINING_PAGE_AI_DRAFT_SESSION_KEY,
   type TrainingPageAiDraft,
 } from "@shared/trainingPageAi";
+import { useI18n } from "@/components/I18nProvider";
 
 export default function TrainingPageEdit({ trainingPageId }: { trainingPageId?: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useI18n();
   const normalizedPageId = trainingPageId ?? "";
   const isNew = normalizedPageId.length === 0;
   const [appliedAiDraftId, setAppliedAiDraftId] = useState<string | null>(null);
@@ -69,8 +71,8 @@ export default function TrainingPageEdit({ trainingPageId }: { trainingPageId?: 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-pages"] });
       toast({
-        title: "저장 완료",
-        description: "훈련 안내 페이지가 성공적으로 저장되었습니다.",
+        title: t("trainingPageEdit.savedTitle"),
+        description: t("trainingPageEdit.savedDescription"),
       });
       router.push("/training-pages");
     },
@@ -109,7 +111,7 @@ export default function TrainingPageEdit({ trainingPageId }: { trainingPageId?: 
 
     if (
       hasExistingContent &&
-      !window.confirm("현재 작성 중인 내용을 AI 생성 결과로 대체합니다. 계속하시겠습니까?")
+      !window.confirm(t("trainingPageEdit.applyDraftConfirm"))
     ) {
       return;
     }
@@ -123,10 +125,10 @@ export default function TrainingPageEdit({ trainingPageId }: { trainingPageId?: 
     setAppliedAiDraftId(draft.id);
     window.sessionStorage.removeItem(TRAINING_PAGE_AI_DRAFT_SESSION_KEY);
     toast({
-      title: "AI 훈련안내페이지 초안 반영 완료",
-      description: "AI가 생성한 훈련안내페이지 초안을 편집 화면에 반영했습니다. 저장 전 내용을 확인해 주세요.",
+      title: t("trainingPageEdit.applyDraftTitle"),
+      description: t("trainingPageEdit.applyDraftDescription"),
     });
-  }, [appliedAiDraftId, form, isNew, toast]);
+  }, [appliedAiDraftId, form, isNew, t, toast]);
 
   return (
     <div className="p-6 space-y-6">
@@ -138,7 +140,7 @@ export default function TrainingPageEdit({ trainingPageId }: { trainingPageId?: 
         </Link>
         <div className="flex-1">
           <h1 className="text-4xl font-bold">
-            {isNew ? "안내 페이지 생성" : "안내 페이지 수정"}
+            {isNew ? t("trainingPageEdit.createTitle") : t("trainingPageEdit.editTitle")}
           </h1>
         </div>
       </div>
@@ -151,9 +153,9 @@ export default function TrainingPageEdit({ trainingPageId }: { trainingPageId?: 
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>페이지 이름</FormLabel>
+                  <FormLabel>{t("trainingPageEdit.nameLabel")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="예: 보안 훈련 결과 안내" {...field} data-testid="input-name" />
+                    <Input placeholder={t("trainingPageEdit.namePlaceholder")} {...field} data-testid="input-name" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -165,10 +167,10 @@ export default function TrainingPageEdit({ trainingPageId }: { trainingPageId?: 
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>설명</FormLabel>
+                  <FormLabel>{t("trainingPageEdit.descriptionLabel")}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="페이지에 대한 간단한 설명"
+                      placeholder={t("trainingPageEdit.descriptionPlaceholder")}
                       {...field}
                       data-testid="input-description"
                     />
@@ -183,14 +185,14 @@ export default function TrainingPageEdit({ trainingPageId }: { trainingPageId?: 
               name="content"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>페이지 내용</FormLabel>
+                  <FormLabel>{t("trainingPageEdit.contentLabel")}</FormLabel>
                   <FormControl>
                     <div data-testid="editor-content">
                       <RichTextEditor
                         value={field.value || ""}
                         onChange={field.onChange}
                         onBlur={field.onBlur}
-                        placeholder="안내 페이지에 표시할 내용을 입력하세요."
+                        placeholder={t("trainingPageEdit.contentPlaceholder")}
                         previewHtml={contentValue}
                       />
                     </div>
@@ -207,11 +209,11 @@ export default function TrainingPageEdit({ trainingPageId }: { trainingPageId?: 
                 data-testid="button-save"
               >
                 <Save className="w-4 h-4 mr-2" />
-                {saveMutation.isPending ? "저장 중..." : "저장"}
+                {saveMutation.isPending ? t("common.saveProgress") : t("common.save")}
               </Button>
               <Link href="/training-pages">
                 <Button type="button" variant="outline" data-testid="button-cancel">
-                  취소
+                  {t("common.cancel")}
                 </Button>
               </Link>
             </div>

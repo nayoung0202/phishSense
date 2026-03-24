@@ -10,6 +10,7 @@ import { SmtpTestPanel } from "@/components/admin/SmtpTestPanel";
 import { createSmtpConfig, getSmtpConfig, testSmtpConfig, updateSmtpConfig } from "@/lib/api";
 import type { SmtpConfigResponse, TestSmtpConfigPayload, UpdateSmtpConfigPayload } from "@/types/smtp";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/components/I18nProvider";
 
 export type SmtpConfigDetailProps = {
   smtpAccountId?: string;
@@ -30,6 +31,7 @@ export function SmtpConfigDetail({
   onBack,
   onSaveSuccess,
 }: SmtpConfigDetailProps) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const [formResetKey, setFormResetKey] = useState(0);
   const [savedConfig, setSavedConfig] = useState<SmtpConfigResponse | null>(null);
@@ -68,7 +70,7 @@ export function SmtpConfigDetail({
       if (nextConfig) {
         setSavedConfig(nextConfig);
       }
-      toast({ title: "발송 설정을 저장했습니다." });
+      toast({ title: t("smtpDetail.saveSuccess") });
       void queryClient.invalidateQueries({ queryKey: ["smtp-configs"] });
       if (savedConfigId) {
         void queryClient.invalidateQueries({ queryKey: ["smtp-config", savedConfigId] });
@@ -81,8 +83,8 @@ export function SmtpConfigDetail({
       }
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : "알 수 없는 오류입니다.";
-      toast({ title: "저장에 실패했습니다.", description: message, variant: "destructive" });
+      const message = error instanceof Error ? error.message : t("common.unknownError");
+      toast({ title: t("smtpDetail.saveFailedTitle"), description: message, variant: "destructive" });
     },
   });
 
@@ -90,14 +92,14 @@ export function SmtpConfigDetail({
     mutationFn: (payload: TestSmtpConfigPayload) => testSmtpConfig(activeSmtpAccountId, payload),
     onSuccess: (response) => {
       toast({
-        title: "테스트 발송을 요청했습니다.",
-        description: response?.message || "서버 응답을 확인하세요.",
+        title: t("smtpDetail.testRequestedTitle"),
+        description: response?.message || t("smtpDetail.testRequestedDescription"),
       });
       refreshConfig();
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : "알 수 없는 오류입니다.";
-      toast({ title: "테스트 발송 실패", description: message, variant: "destructive" });
+      const message = error instanceof Error ? error.message : t("common.unknownError");
+      toast({ title: t("smtpDetail.testFailedTitle"), description: message, variant: "destructive" });
     },
   });
 
@@ -118,24 +120,24 @@ export function SmtpConfigDetail({
   const fetchErrorMessage = useMemo(() => {
     if (!fetchError) return null;
     if (fetchError instanceof Error) return fetchError.message;
-    return "발송 설정을 불러오지 못했습니다.";
-  }, [fetchError]);
+    return t("smtpDetail.fetchFailed");
+  }, [fetchError, t]);
 
   const testDisabledReason = useMemo(() => {
     if (!activeSmtpAccountId) {
-      return "등록을 완료한 뒤 테스트하세요.";
+      return t("smtpDetail.testDisabled.notSaved");
     }
     if (!configData) {
-      return "설정을 불러오는 중입니다.";
+      return t("smtpDetail.testDisabled.loading");
     }
     if (!configData.hasPassword) {
-      return "SMTP 비밀번호를 저장한 뒤 테스트할 수 있습니다.";
+      return t("smtpDetail.testDisabled.missingPassword");
     }
     if (configData.port !== 465 && configData.port !== 587) {
-      return "테스트 발송은 465 또는 587 포트에서만 지원됩니다.";
+      return t("smtpDetail.testDisabled.unsupportedPort");
     }
     return undefined;
-  }, [activeSmtpAccountId, configData]);
+  }, [activeSmtpAccountId, configData, t]);
 
   const canTest = Boolean(!testDisabledReason);
 
@@ -163,18 +165,18 @@ export function SmtpConfigDetail({
         <div className="flex flex-wrap gap-2">
           {onBack && (
             <Button variant="outline" onClick={onBack}>
-              목록으로
+              {t("common.backToList")}
             </Button>
           )}
           <Button variant="outline" onClick={handleRefreshClick} disabled={!shouldFetch || isFetching}>
-            <RefreshCw className="w-4 h-4 mr-1" /> 새로고침
+            <RefreshCw className="w-4 h-4 mr-1" /> {t("common.refresh")}
           </Button>
         </div>
       </div>
 
       {shouldFetch && fetchErrorMessage && (
         <Alert variant="destructive">
-          <AlertTitle>발송 설정 불러오기 실패</AlertTitle>
+          <AlertTitle>{t("smtpDetail.fetchFailedTitle")}</AlertTitle>
           <AlertDescription>{fetchErrorMessage.slice(0, 400)}</AlertDescription>
         </Alert>
       )}

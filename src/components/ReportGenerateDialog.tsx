@@ -10,12 +10,14 @@ import {
   reportCaptureFields,
   type ReportCaptureKey,
 } from "@/lib/reportCaptures";
+import { useI18n } from "@/components/I18nProvider";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getIntlLocale } from "@/lib/i18n";
 
 type ReportSettingItem = {
   id: string;
@@ -52,6 +54,7 @@ export function ReportGenerateDialog({
   onProjectUpdated,
   onGenerated,
 }: ReportGenerateDialogProps) {
+  const { locale, t } = useI18n();
   const { toast } = useToast();
   const [currentProject, setCurrentProject] = useState<Project | null>(project);
   const [captureFiles, setCaptureFiles] = useState<Record<ReportCaptureKey, File | null>>(EMPTY_CAPTURE_FILES);
@@ -64,7 +67,7 @@ export function ReportGenerateDialog({
     queryFn: async () => {
       const response = await fetch("/api/reports/settings?page=1&pageSize=100");
       if (!response.ok) {
-        throw new Error("보고서 설정 목록을 불러오지 못했습니다.");
+        throw new Error(t("reportGenerate.loadSettingsFailed"));
       }
       return (await response.json()) as ReportSettingsResponse;
     },
@@ -114,7 +117,7 @@ export function ReportGenerateDialog({
     if (!currentProject || isCaptureUploading) return;
     const selected = reportCaptureFields.filter((field) => captureFiles[field.key]);
     if (selected.length === 0) {
-      alert("업로드할 캡처 이미지가 없습니다.");
+      alert(t("reportGenerate.noUploadFileAlert"));
       return;
     }
 
@@ -135,7 +138,7 @@ export function ReportGenerateDialog({
 
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(payload.error || "캡처 업로드에 실패했습니다.");
+        throw new Error(payload.error || t("reportGenerate.uploadFailed"));
       }
 
       const updated = payload.project as Project | undefined;
@@ -145,16 +148,14 @@ export function ReportGenerateDialog({
       }
 
       toast({
-        title: "캡처 업로드 완료",
-        description: Array.isArray(payload.uploaded)
-          ? `${payload.uploaded.join(", ")} 업로드됨`
-          : "캡처 이미지를 저장했습니다.",
+        title: t("reportGenerate.uploadSuccessTitle"),
+        description: t("reportGenerate.captureSavedDescription"),
       });
       setCaptureFiles(EMPTY_CAPTURE_FILES);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "캡처 업로드에 실패했습니다.";
+      const message = error instanceof Error ? error.message : t("reportGenerate.uploadFailed");
       toast({
-        title: "캡처 업로드 실패",
+        title: t("reportGenerate.uploadFailedTitle"),
         description: message,
         variant: "destructive",
       });
@@ -167,8 +168,8 @@ export function ReportGenerateDialog({
     if (!currentProject || isReportGenerating) return;
     if (!selectedReportSettingId) return;
     if (!hasAllReportCaptures(currentProject)) {
-      const missing = getMissingReportCaptures(currentProject).map((field) => field.label);
-      alert(`보고서 캡처 이미지가 누락되었습니다: ${missing.join(", ")}`);
+      const missing = getMissingReportCaptures(currentProject).map((field) => t(field.labelKey));
+      alert(t("reportGenerate.missingCapturesAlert", { captures: missing.join(", ") }));
       return;
     }
 
@@ -184,25 +185,25 @@ export function ReportGenerateDialog({
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        throw new Error(payload.error || "보고서 생성에 실패했습니다.");
+        throw new Error(payload.error || t("reportGenerate.generateFailed"));
       }
 
       const payload = (await res.json()) as { downloadUrl?: string };
       if (!payload.downloadUrl) {
-        throw new Error("보고서 다운로드 주소를 찾지 못했습니다.");
+        throw new Error(t("reportGenerate.downloadUrlMissing"));
       }
 
       window.location.href = payload.downloadUrl;
       toast({
-        title: "보고서 생성 완료",
-        description: "보고서를 다운로드합니다.",
+        title: t("reportGenerate.generateSuccessTitle"),
+        description: t("reportGenerate.generateSuccessDescription"),
       });
       onGenerated?.();
       onOpenChange(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "보고서 생성에 실패했습니다.";
+      const message = error instanceof Error ? error.message : t("reportGenerate.generateFailed");
       toast({
-        title: "보고서 생성 실패",
+        title: t("reportGenerate.generateFailedTitle"),
         description: message,
         variant: "destructive",
       });
@@ -212,13 +213,14 @@ export function ReportGenerateDialog({
   };
 
   const canGenerate = hasReportSettings && Boolean(selectedReportSettingId);
+  const intlLocale = getIntlLocale(locale);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] w-[95vw] max-w-2xl flex-col overflow-hidden p-0">
         <DialogHeader className="shrink-0 px-6 pt-6">
-          <DialogTitle>프로젝트 보고서 미리보기</DialogTitle>
-          <DialogDescription>보고서 설정을 선택하고 캡처 업로드 후 보고서를 생성하세요.</DialogDescription>
+          <DialogTitle>{t("reportGenerate.title")}</DialogTitle>
+          <DialogDescription>{t("reportGenerate.description")}</DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="min-h-0 flex-1">
@@ -227,25 +229,25 @@ export function ReportGenerateDialog({
           {currentProject ? (
             <div className="space-y-2">
               <p>
-                <span className="font-semibold">이름:</span> {currentProject.name}
+                <span className="font-semibold">{t("reportGenerate.projectNameLabel")}</span> {currentProject.name}
               </p>
               <p>
-                <span className="font-semibold">부서:</span> {getProjectDepartmentDisplay(currentProject)}
+                <span className="font-semibold">{t("reportGenerate.projectDepartmentLabel")}</span> {getProjectDepartmentDisplay(currentProject)}
               </p>
               <p>
-                <span className="font-semibold">일정:</span>{" "}
-                {new Date(currentProject.startDate).toLocaleDateString("ko-KR")} ~{" "}
-                {new Date(currentProject.endDate).toLocaleDateString("ko-KR")}
+                <span className="font-semibold">{t("reportGenerate.projectScheduleLabel")}</span>{" "}
+                {new Date(currentProject.startDate).toLocaleDateString(intlLocale)} ~{" "}
+                {new Date(currentProject.endDate).toLocaleDateString(intlLocale)}
               </p>
-              <p>{currentProject.description ?? "설명 없음"}</p>
+              <p>{currentProject.description ?? t("common.noDescription")}</p>
             </div>
           ) : (
-            <p>선택된 프로젝트가 없습니다.</p>
+            <p>{t("reportGenerate.noProjectSelected")}</p>
           )}
           </div>
 
         <div className="space-y-2 rounded-lg border border-muted p-3">
-          <Label className="text-sm font-semibold">보고서 설정 선택</Label>
+          <Label className="text-sm font-semibold">{t("reportGenerate.selectSettingLabel")}</Label>
           <select
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             value={selectedReportSettingId}
@@ -253,22 +255,22 @@ export function ReportGenerateDialog({
             disabled={!hasReportSettings || reportSettingsQuery.isLoading}
           >
             {!hasReportSettings ? (
-              <option value="">보고서 설정이 없습니다.</option>
+              <option value="">{t("reportGenerate.noSettings")}</option>
             ) : (
               reportSettings.map((setting) => (
                 <option key={setting.id} value={setting.id}>
-                  {setting.name} ({setting.companyName}){setting.isDefault ? " · 기본" : ""}
+                  {setting.name} ({setting.companyName}){setting.isDefault ? ` · ${t("common.default")}` : ""}
                 </option>
               ))
             )}
           </select>
           {!hasReportSettings ? (
             <p className="text-xs text-destructive">
-              보고서 생성 전 보고서 관리에서 설정을 1개 이상 등록해야 합니다.
+              {t("reportGenerate.requireSettings")}
             </p>
           ) : selectedSetting ? (
             <p className="text-xs text-muted-foreground">
-              선택 설정 승인자: {selectedSetting.approverName}
+              {t("reportGenerate.approverLabel")} {selectedSetting.approverName}
               {selectedSetting.approverTitle ? ` (${selectedSetting.approverTitle})` : ""}
             </p>
           ) : null}
@@ -277,8 +279,8 @@ export function ReportGenerateDialog({
         <div className="space-y-3 rounded-lg border border-muted p-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold">보고서 캡처 업로드</p>
-              <p className="text-xs text-muted-foreground">PNG/JPG, 5MB 이하 · 가로 16.5cm 고정(세로 비율 유지)</p>
+              <p className="text-sm font-semibold">{t("reportGenerate.captureSectionTitle")}</p>
+              <p className="text-xs text-muted-foreground">{t("reportGenerate.captureSectionDescription")}</p>
             </div>
             <Button
               size="sm"
@@ -286,17 +288,21 @@ export function ReportGenerateDialog({
               onClick={uploadReportCaptures}
               disabled={!currentProject || isCaptureUploading}
             >
-              {isCaptureUploading ? "업로드 중..." : "캡처 업로드"}
+              {isCaptureUploading ? t("reportGenerate.uploadingButton") : t("reportGenerate.uploadButton")}
             </Button>
           </div>
           <div className="space-y-3">
             {reportCaptureFields.map((field) => {
               const file = captureFiles[field.key];
               const uploaded = currentProject?.[field.projectField];
-              const status = file ? `선택됨: ${file.name}` : uploaded ? "업로드 완료" : "미업로드";
+              const status = file
+                ? t("reportGenerate.fileSelectedStatus", { file: file.name })
+                : uploaded
+                  ? t("reportGenerate.fileUploadedStatus")
+                  : t("reportGenerate.fileMissingStatus");
               return (
                 <div key={field.key} className="space-y-1">
-                  <Label className="text-xs font-semibold">{field.label}</Label>
+                  <Label className="text-xs font-semibold">{t(field.labelKey)}</Label>
                   <div className="space-y-2">
                     <Input
                       type="file"
@@ -307,12 +313,12 @@ export function ReportGenerateDialog({
                     />
                     <span className="text-xs text-muted-foreground">{status}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{field.description}</p>
+                  <p className="text-xs text-muted-foreground">{t(field.descriptionKey)}</p>
                 </div>
               );
             })}
           </div>
-          <p className="text-xs text-muted-foreground">4개 캡처가 모두 업로드되어야 보고서 생성이 가능합니다.</p>
+          <p className="text-xs text-muted-foreground">{t("reportGenerate.allCapturesRequired")}</p>
         </div>
 
           </div>
@@ -320,10 +326,10 @@ export function ReportGenerateDialog({
 
         <DialogFooter className="shrink-0 px-6 pb-6 pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            닫기
+            {t("common.close")}
           </Button>
           <Button onClick={generateReport} disabled={!canGenerate || isReportGenerating}>
-            {isReportGenerating ? "생성 중..." : "보고서 생성"}
+            {isReportGenerating ? t("reportGenerate.generatingButton") : t("reportGenerate.generateButton")}
           </Button>
         </DialogFooter>
       </DialogContent>

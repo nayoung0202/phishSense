@@ -51,7 +51,7 @@ export default function TrainingPages() {
   );
 
   const handleDelete = (id: string) => {
-    if (confirm(t("정말 삭제하시겠습니까?"))) {
+    if (confirm(t("common.confirmDelete"))) {
       deleteMutation.mutate(id);
     }
   };
@@ -75,7 +75,7 @@ export default function TrainingPages() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold mb-2">{t("훈련 안내 페이지 관리")}</h1>
+          <h1 className="text-4xl font-bold mb-2">{t("trainingPages.title")}</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -85,12 +85,12 @@ export default function TrainingPages() {
             onClick={() => setIsAiGenerateOpen(true)}
           >
             <Sparkles className="w-4 h-4 mr-2" />
-            {t("AI 훈련안내페이지 생성")}
+            {t("trainingPages.generateAi")}
           </Button>
           <Link href="/training-pages/new">
             <Button data-testid="button-new-page">
               <Plus className="w-4 h-4 mr-2" />
-              {t("새 안내 페이지 생성")}
+              {t("trainingPages.create")}
             </Button>
           </Link>
         </div>
@@ -100,7 +100,7 @@ export default function TrainingPages() {
         <div className="mb-6 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder={t("페이지명으로 검색...")}
+            placeholder={t("trainingPages.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -112,7 +112,7 @@ export default function TrainingPages() {
           <div className="text-center py-12">{t("common.loading")}</div>
         ) : filteredPages.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            {t("안내 페이지가 없습니다")}
+            {t("trainingPages.empty")}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -128,21 +128,21 @@ export default function TrainingPages() {
                         <SafeText value={page.name} fallback="-" />
                       </h3>
                       <p className="text-sm text-muted-foreground line-clamp-2">
-                        <SafeText value={page.description} fallback={t("설명 없음")} />
+                        <SafeText value={page.description} fallback={t("common.noDescription")} />
                       </p>
                     </div>
                   </div>
 
                   <div className="pt-4 border-t border-border">
                     <p className="text-xs text-muted-foreground mb-3">
-                      {t("최근 수정:")} {formatDate(page.updatedAt!)}
+                      {t("common.updatedAt")} {formatDate(page.updatedAt!)}
                     </p>
                     <div className="flex items-center gap-2">
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button variant="outline" size="sm" data-testid={`button-preview-${page.id}`}>
                             <Eye className="w-4 h-4 mr-2" />
-                            {t("미리보기")}
+                            {t("common.preview")}
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-3xl">
@@ -152,11 +152,11 @@ export default function TrainingPages() {
                                 <SafeText value={page.name} fallback="-" />
                               </DialogTitle>
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <span className={previewTheme === "light" ? "text-foreground font-semibold" : ""}>{t("라이트")}</span>
+                                <span className={previewTheme === "light" ? "text-foreground font-semibold" : ""}>{t("common.light")}</span>
                                 <Switch
                                   checked={previewTheme === "dark"}
                                   onCheckedChange={(checked) => setPreviewTheme(checked ? "dark" : "light")}
-                                  aria-label={t("미리보기 테마 전환")}
+                                  aria-label={t("common.previewThemeToggle")}
                                   thumbIcon={
                                     previewTheme === "dark" ? (
                                       <Moon className="h-3 w-3" />
@@ -165,7 +165,7 @@ export default function TrainingPages() {
                                     )
                                   }
                                 />
-                                <span className={previewTheme === "dark" ? "text-foreground font-semibold" : ""}>{t("다크")}</span>
+                                <span className={previewTheme === "dark" ? "text-foreground font-semibold" : ""}>{t("common.dark")}</span>
                               </div>
                             </div>
                           </DialogHeader>

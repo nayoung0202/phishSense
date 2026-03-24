@@ -49,6 +49,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { neutralizePreviewModalHtml } from "@/lib/templatePreview";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/I18nProvider";
 import {
   TEMPLATE_AI_DRAFT_SESSION_KEY,
   type TemplateAiDraft,
@@ -84,12 +85,13 @@ const normalizeAiDraftForEditor = (html: string) =>
 export default function TemplateEdit({ templateId }: { templateId?: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const { toast } = useToast();
   const normalizedTemplateId = templateId ?? "";
   const isNew = normalizedTemplateId.length === 0;
   const [saveAttempted, setSaveAttempted] = useState(false);
   const [appliedAiDraftId, setAppliedAiDraftId] = useState<string | null>(null);
-  const [trainingLinkLabel, setTrainingLinkLabel] = useState("훈련 안내 페이지로 이동");
+  const [trainingLinkLabel, setTrainingLinkLabel] = useState(t("templateEdit.trainingLinkDefaultLabel"));
   const [trainingLinkKind, setTrainingLinkKind] = useState<"link" | "button">("link");
   const [trainingLinkNewTab, setTrainingLinkNewTab] = useState(true);
 
@@ -106,7 +108,7 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
       body: template?.body || "",
       maliciousPageContent: template?.maliciousPageContent || "",
       autoInsertLandingEnabled: template?.autoInsertLandingEnabled ?? true,
-      autoInsertLandingLabel: template?.autoInsertLandingLabel ?? "문서 확인하기",
+      autoInsertLandingLabel: template?.autoInsertLandingLabel ?? t("templateEdit.landingLinkDefaultLabel"),
       autoInsertLandingKind: template?.autoInsertLandingKind ?? "link",
       autoInsertLandingNewTab: template?.autoInsertLandingNewTab ?? true,
     },
@@ -116,7 +118,7 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
       body: template.body,
       maliciousPageContent: template.maliciousPageContent,
       autoInsertLandingEnabled: template.autoInsertLandingEnabled ?? true,
-      autoInsertLandingLabel: template.autoInsertLandingLabel ?? "문서 확인하기",
+      autoInsertLandingLabel: template.autoInsertLandingLabel ?? t("templateEdit.landingLinkDefaultLabel"),
       autoInsertLandingKind: template.autoInsertLandingKind ?? "link",
       autoInsertLandingNewTab: template.autoInsertLandingNewTab ?? true,
     } : undefined,
@@ -124,7 +126,7 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
 
   const bodyValue = form.watch("body") ?? "";
   const maliciousValue = form.watch("maliciousPageContent") ?? "";
-  const autoInsertLabel = form.watch("autoInsertLandingLabel") ?? "문서 확인하기";
+  const autoInsertLabel = form.watch("autoInsertLandingLabel") ?? t("templateEdit.landingLinkDefaultLabel");
   const autoInsertKind = form.watch("autoInsertLandingKind") ?? "link";
   const autoInsertNewTab = form.watch("autoInsertLandingNewTab") ?? true;
   const mailTokens = extractTemplateTokens(bodyValue);
@@ -182,7 +184,7 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
     if (countTokenOccurrences(currentBody, MALICIOUS_TRAINING_TOKENS) > 0) {
       return;
     }
-    const normalizedLabel = trainingLinkLabel.trim() || "훈련 안내 페이지로 이동";
+    const normalizedLabel = trainingLinkLabel.trim() || t("templateEdit.trainingLinkDefaultLabel");
     const config = {
       enabled: true,
       label: normalizedLabel,
@@ -222,7 +224,7 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
 
     if (
       hasExistingContent &&
-      !window.confirm("현재 작성 중인 제목과 본문 내용이 AI 생성 결과로 대체됩니다. 계속하시겠습니까?")
+      !window.confirm(t("templateEdit.applyDraftConfirm"))
     ) {
       return;
     }
@@ -233,17 +235,17 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
       body: normalizeAiDraftForEditor(draft.body),
       maliciousPageContent: normalizeAiDraftForEditor(draft.maliciousPageContent),
       autoInsertLandingEnabled: true,
-      autoInsertLandingLabel: "문서 확인하기",
+      autoInsertLandingLabel: t("templateEdit.landingLinkDefaultLabel"),
       autoInsertLandingKind: "link",
       autoInsertLandingNewTab: true,
     });
     setAppliedAiDraftId(draft.id);
     window.sessionStorage.removeItem(TEMPLATE_AI_DRAFT_SESSION_KEY);
     toast({
-      title: "AI 템플릿 초안 반영 완료",
-      description: "AI가 생성한 제목과 본문이 편집 화면에 반영되었습니다. 저장 전 내용을 검토하세요.",
+      title: t("templateEdit.applyDraftTitle"),
+      description: t("templateEdit.applyDraftDescription"),
     });
-  }, [appliedAiDraftId, form, isNew, toast]);
+  }, [appliedAiDraftId, form, isNew, t, toast]);
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -255,8 +257,8 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
       toast({
-        title: "저장 완료",
-        description: "템플릿이 성공적으로 저장되었습니다.",
+        title: t("templateEdit.savedTitle"),
+        description: t("templateEdit.savedDescription"),
       });
       router.push("/templates");
     },
@@ -266,8 +268,8 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
     setSaveAttempted(true);
     if (isSaveBlocked) {
       toast({
-        title: "필수 링크를 확인해주세요.",
-        description: "메일 본문과 악성 본문에 필수 링크 토큰이 있어야 합니다.",
+        title: t("templateEdit.requiredLinksTitle"),
+        description: t("templateEdit.requiredLinksDescription"),
       });
       return;
     }
@@ -284,7 +286,7 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
         </Link>
         <div className="flex-1">
           <h1 className="text-4xl font-bold">
-            {isNew ? "템플릿 생성" : "템플릿 수정"}
+            {isNew ? t("templateEdit.createTitle") : t("templateEdit.editTitle")}
           </h1>
         </div>
       </div>
@@ -297,9 +299,9 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>템플릿 이름</FormLabel>
+                  <FormLabel>{t("templateEdit.nameLabel")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="예: 배송 알림 템플릿" {...field} data-testid="input-name" />
+                    <Input placeholder={t("templateEdit.namePlaceholder")} {...field} data-testid="input-name" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -311,9 +313,9 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
               name="subject"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>메일 제목</FormLabel>
+                  <FormLabel>{t("templateEdit.subjectLabel")}</FormLabel>
                   <FormControl>
-                    <Input placeholder="예: [긴급] 배송 주소 확인 필요" {...field} data-testid="input-subject" />
+                    <Input placeholder={t("templateEdit.subjectPlaceholder")} {...field} data-testid="input-subject" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -328,19 +330,19 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
             >
               <div className="flex flex-wrap items-center gap-2">
                 {hasLandingToken ? (
-                  <Badge className="bg-emerald-100 text-emerald-700">필수 링크 포함됨</Badge>
+                  <Badge className="bg-emerald-100 text-emerald-700">{t("templateEdit.requiredLinkIncluded")}</Badge>
                 ) : (
-                  <Badge className="bg-red-100 text-red-700">필수 링크 누락</Badge>
+                  <Badge className="bg-red-100 text-red-700">{t("templateEdit.requiredLinkMissing")}</Badge>
                 )}
                 {unknownMailTokens.length > 0 && (
                   <Badge className="bg-red-100 text-red-700">
-                    허용되지 않은 토큰: {unknownMailTokens.join(", ")}
+                    {t("templateEdit.disallowedTokens", { tokens: unknownMailTokens.join(", ") })}
                   </Badge>
                 )}
               </div>
               {isLandingTokenMissing && (
                 <p className="text-xs text-muted-foreground">
-                  메일 본문에 훈련 링크를 최소 1개 넣어주세요.
+                  {t("templateEdit.landingLinkHint")}
                 </p>
               )}
 
@@ -351,9 +353,9 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
                     name="autoInsertLandingLabel"
                     render={({ field }) => (
                       <FormItem>
-                        <Label>링크 문구</Label>
+                        <Label>{t("templateEdit.linkLabel")}</Label>
                         <FormControl>
-                          <Input placeholder="예: 문서 확인하기" {...field} />
+                          <Input placeholder={t("templateEdit.landingLinkDefaultLabel")} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -365,16 +367,16 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
                     name="autoInsertLandingKind"
                     render={({ field }) => (
                       <FormItem>
-                        <Label>형태</Label>
+                        <Label>{t("templateEdit.linkTypeLabel")}</Label>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="형태 선택" />
+                              <SelectValue placeholder={t("templateEdit.linkTypePlaceholder")} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="link">텍스트 링크</SelectItem>
-                            <SelectItem value="button">버튼</SelectItem>
+                            <SelectItem value="link">{t("templateEdit.linkTypeText")}</SelectItem>
+                            <SelectItem value="button">{t("templateEdit.linkTypeButton")}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -387,13 +389,13 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
                     name="autoInsertLandingNewTab"
                     render={({ field }) => (
                       <FormItem className="flex h-full flex-col justify-between">
-                        <Label>링크를 새 창(새 탭)으로 열기</Label>
+                        <Label>{t("templateEdit.openInNewTabLabel")}</Label>
                         <div className="flex items-center gap-3 rounded-md border px-3 py-2">
                           <FormControl>
                             <Switch checked={field.value} onCheckedChange={field.onChange} />
                           </FormControl>
                           <span className="text-sm text-muted-foreground">
-                            새 탭으로 열립니다
+                            {t("templateEdit.openInNewTabDescription")}
                           </span>
                         </div>
                       </FormItem>
@@ -408,19 +410,19 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
                     onClick={handleInsertLandingLink}
                     disabled={!isLandingTokenMissing}
                   >
-                    필수 링크 삽입
+                    {t("templateEdit.insertRequiredLink")}
                   </Button>
                   <span className="text-xs text-muted-foreground">
                     {isLandingTokenMissing
-                      ? "현재 설정으로 메일 본문 끝에 추가합니다."
-                      : "이미 포함되어 있습니다."}
+                      ? t("templateEdit.insertLandingHint")
+                      : t("templateEdit.alreadyIncluded")}
                   </span>
                 </div>
               </div>
 
               {showLandingValidation && (
                 <p className="text-xs text-red-600">
-                  필수 링크 토큰이 없습니다. {"{{LANDING_URL}}"}을 추가하세요.
+                  {t("templateEdit.missingLandingToken")}
                 </p>
               )}
             </div>
@@ -430,14 +432,14 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
               name="body"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>메일 본문</FormLabel>
+                  <FormLabel>{t("templateEdit.bodyLabel")}</FormLabel>
                   <FormControl>
                     <div data-testid="editor-body">
                       <RichTextEditor
                         value={field.value || ""}
                         onChange={field.onChange}
                         onBlur={field.onBlur}
-                        placeholder="메일 본문을 자유롭게 작성하세요."
+                        placeholder={t("templateEdit.bodyPlaceholder")}
                         previewHtml={previewMailHtml}
                         editTheme="mail-dark-readable"
                       />
@@ -453,7 +455,7 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
               name="maliciousPageContent"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>악성 메일 본문</FormLabel>
+                  <FormLabel>{t("templateEdit.maliciousBodyLabel")}</FormLabel>
                   <div
                     className={cn(
                       "space-y-3 rounded-lg border p-4",
@@ -464,37 +466,37 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       {hasTrainingToken ? (
-                        <Badge className="bg-emerald-100 text-emerald-700">필수 링크 포함됨</Badge>
+                        <Badge className="bg-emerald-100 text-emerald-700">{t("templateEdit.requiredLinkIncluded")}</Badge>
                       ) : (
-                        <Badge className="bg-red-100 text-red-700">필수 링크 누락</Badge>
+                        <Badge className="bg-red-100 text-red-700">{t("templateEdit.requiredLinkMissing")}</Badge>
                       )}
                       {isMaliciousEmpty && (
                         <Badge className="bg-red-100 text-red-700">
-                          악성 본문 비어 있음 · 실제 발송 차단
+                          {t("templateEdit.emptyMaliciousBody")}
                         </Badge>
                       )}
                       {unknownMaliciousTokens.length > 0 && (
                         <Badge className="bg-red-100 text-red-700">
-                          허용되지 않은 토큰: {unknownMaliciousTokens.join(", ")}
+                          {t("templateEdit.disallowedTokens", { tokens: unknownMaliciousTokens.join(", ") })}
                         </Badge>
                       )}
                     </div>
                     {isTrainingTokenMissing && (
                       <p className="text-xs text-muted-foreground">
-                        악성 본문에 훈련 안내 링크를 최소 1개 넣어주세요.
+                        {t("templateEdit.trainingLinkHint")}
                       </p>
                     )}
                     <div className="grid gap-4 md:grid-cols-3">
                       <div className="space-y-2">
-                        <Label>링크 문구</Label>
+                        <Label>{t("templateEdit.linkLabel")}</Label>
                         <Input
-                          placeholder="예: 훈련 안내 페이지로 이동"
+                          placeholder={t("templateEdit.trainingLinkDefaultLabel")}
                           value={trainingLinkLabel}
                           onChange={(event) => setTrainingLinkLabel(event.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>형태</Label>
+                        <Label>{t("templateEdit.linkTypeLabel")}</Label>
                         <Select
                           onValueChange={(value) =>
                             setTrainingLinkKind(value === "button" ? "button" : "link")
@@ -502,23 +504,23 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
                           value={trainingLinkKind}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="형태 선택" />
+                            <SelectValue placeholder={t("templateEdit.linkTypePlaceholder")} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="link">텍스트 링크</SelectItem>
-                            <SelectItem value="button">버튼</SelectItem>
+                            <SelectItem value="link">{t("templateEdit.linkTypeText")}</SelectItem>
+                            <SelectItem value="button">{t("templateEdit.linkTypeButton")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>링크를 새 창(새 탭)으로 열기</Label>
+                        <Label>{t("templateEdit.openInNewTabLabel")}</Label>
                         <div className="flex items-center gap-3 rounded-md border px-3 py-2">
                           <Switch
                             checked={trainingLinkNewTab}
                             onCheckedChange={setTrainingLinkNewTab}
                           />
                           <span className="text-sm text-muted-foreground">
-                            새 탭으로 열립니다
+                            {t("templateEdit.openInNewTabDescription")}
                           </span>
                         </div>
                       </div>
@@ -531,17 +533,17 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
                         onClick={handleInsertTrainingLink}
                         disabled={!isTrainingTokenMissing}
                       >
-                        필수 링크 삽입
+                        {t("templateEdit.insertRequiredLink")}
                       </Button>
                       <span className="text-xs text-muted-foreground">
                         {isTrainingTokenMissing
-                          ? "현재 악성 본문 끝에 추가합니다."
-                          : "이미 포함되어 있습니다."}
+                          ? t("templateEdit.insertTrainingHint")
+                          : t("templateEdit.alreadyIncluded")}
                       </span>
                     </div>
                     {showTrainingValidation && (
                       <p className="text-xs text-red-600">
-                        필수 링크 토큰이 없습니다. {"{{TRAINING_URL}}"}을 추가하세요.
+                        {t("templateEdit.missingTrainingToken")}
                       </p>
                     )}
                     <FormControl>
@@ -550,7 +552,7 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
                           value={field.value || ""}
                           onChange={field.onChange}
                           onBlur={field.onBlur}
-                          placeholder="실제 악성 메일 페이지 본문을 작성하세요."
+                          placeholder={t("templateEdit.maliciousBodyPlaceholder")}
                           previewHtml={previewMaliciousHtml}
                           editTheme="malicious-modal"
                         />
@@ -569,11 +571,11 @@ export default function TemplateEdit({ templateId }: { templateId?: string }) {
                 data-testid="button-save"
               >
                 <Save className="w-4 h-4 mr-2" />
-                {saveMutation.isPending ? "저장 중..." : "저장"}
+                {saveMutation.isPending ? t("common.saveProgress") : t("common.save")}
               </Button>
               <Link href="/templates">
                 <Button type="button" variant="outline" data-testid="button-cancel">
-                  취소
+                  {t("common.cancel")}
                 </Button>
               </Link>
             </div>

@@ -8,12 +8,9 @@ import {
   type TemplateAiCandidate,
   TEMPLATE_AI_DRAFT_SESSION_KEY,
   TEMPLATE_AI_REFERENCE_ATTACHMENT_ACCEPT,
-  templateAiDifficultyLabels,
   templateAiDifficultyOptions,
-  templateAiToneLabels,
   validateTemplateAiReferenceAttachmentMeta,
   templateAiToneOptions,
-  templateAiTopicLabels,
   templateAiTopicOptions,
 } from "@shared/templateAi";
 import { cn } from "@/lib/utils";
@@ -38,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/components/I18nProvider";
 
 type GenerateResponse = {
   candidates: TemplateAiCandidate[];
@@ -67,9 +65,9 @@ const candidatePreviewSurfaceClass =
   "site-scrollbar max-h-[320px] overflow-y-auto rounded-lg bg-slate-50 p-4 text-slate-900";
 const focusedDialogContentClass = "max-w-5xl h-[88vh] overflow-hidden";
 
-const getGenerateErrorMessage = (error: unknown) => {
+const getGenerateErrorMessage = (error: unknown, fallbackMessage: string) => {
   if (!(error instanceof Error)) {
-    return "AI 템플릿 생성 중 오류가 발생했습니다.";
+    return fallbackMessage;
   }
 
   const matchedBody = error.message.match(/^\d{3}:\s*([\s\S]+)$/)?.[1]?.trim();
@@ -88,6 +86,7 @@ const getGenerateErrorMessage = (error: unknown) => {
 };
 
 export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
+  const { t } = useI18n();
   const router = useRouter();
   const [step, setStep] = useState<DialogStep>("options");
   const [topic, setTopic] = useState<(typeof templateAiTopicOptions)[number]>(DEFAULT_TOPIC);
@@ -113,6 +112,39 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
   const maxPairPage = Math.max(0, Math.ceil(candidates.length / 2) - 1);
   const selectedCandidate =
     candidates.find((candidate) => candidate.id === selectedCandidateId) ?? null;
+  const topicLabels = {
+    shipping: t("templateAi.topic.shipping"),
+    "account-security": t("templateAi.topic.accountSecurity"),
+    "payroll-benefits": t("templateAi.topic.payrollBenefits"),
+    "hr-announcement": t("templateAi.topic.hrAnnouncement"),
+    approval: t("templateAi.topic.approval"),
+    "it-maintenance": t("templateAi.topic.itMaintenance"),
+    other: t("templateAi.topic.other"),
+  } as const;
+  const toneLabels = {
+    formal: t("templateAi.tone.formal"),
+    informational: t("templateAi.tone.informational"),
+    "internal-notice": t("templateAi.tone.internalNotice"),
+    "urgent-request": t("templateAi.tone.urgentRequest"),
+  } as const;
+  const difficultyLabels = {
+    easy: t("templateAi.difficulty.easy"),
+    medium: t("templateAi.difficulty.medium"),
+    hard: t("templateAi.difficulty.hard"),
+  } as const;
+
+  const translateAttachmentError = (message: string) => {
+    if (message === "빈 파일은 업로드할 수 없습니다.") {
+      return t("templateAi.emptyFile");
+    }
+    if (message === "첨부파일은 2MB 이하만 업로드할 수 있습니다.") {
+      return t("templateAi.attachmentSizeLimit");
+    }
+    if (message === "이미지(PNG/JPEG/WEBP/GIF) 또는 HTML 파일만 업로드할 수 있습니다.") {
+      return t("templateAi.attachmentTypeLimit");
+    }
+    return message;
+  };
 
   const resetDialogState = () => {
     setStep("options");
@@ -210,7 +242,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
 
     if (validationMessage) {
       setter(null);
-      setAttachmentError(validationMessage);
+      setAttachmentError(translateAttachmentError(validationMessage));
       return;
     }
 
@@ -269,7 +301,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
 
     return (
       <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-        {attachmentError ?? getGenerateErrorMessage(generateMutation.error)}
+        {attachmentError ?? getGenerateErrorMessage(generateMutation.error, t("templateAi.generateErrorFallback"))}
       </div>
     );
   };
@@ -291,10 +323,10 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
         onChange={(event) => args.onChange(event.target.files)}
       />
       <p className="text-xs text-muted-foreground">
-        이미지(PNG/JPEG/WEBP/GIF) 또는 HTML 파일 1개를 업로드할 수 있습니다. 최대 2MB.
+        {t("templateAi.attachmentHelp")}
       </p>
       {args.selectedFile ? (
-        <p className="text-xs text-slate-700">선택된 파일: {args.selectedFile.name}</p>
+        <p className="text-xs text-slate-700">{t("templateAi.selectedFile", { file: args.selectedFile.name })}</p>
       ) : null}
     </div>
   );
@@ -303,22 +335,22 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <Card className="space-y-4 p-5">
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">1단계. 생성 조건 설정</h3>
+          <h3 className="text-lg font-semibold">{t("templateAi.optionsStepTitle")}</h3>
           <p className="text-sm text-muted-foreground">
-            생성 조건을 입력하고 템플릿을 생성합니다.
+            {t("templateAi.optionsStepDescription")}
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label>주제</Label>
+          <Label>{t("templateAi.topicLabel")}</Label>
           <Select value={topic} onValueChange={(value) => setTopic(value as typeof topic)}>
             <SelectTrigger>
-              <SelectValue placeholder="주제를 선택하세요" />
+              <SelectValue placeholder={t("templateAi.topicPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
               {templateAiTopicOptions.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {templateAiTopicLabels[option]}
+                  {topicLabels[option]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -327,31 +359,31 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
 
         {requiresCustomTopic ? (
           <div className="space-y-2">
-            <Label htmlFor="template-ai-custom-topic">주제 직접 입력</Label>
+            <Label htmlFor="template-ai-custom-topic">{t("templateAi.customTopicLabel")}</Label>
             <Input
               id="template-ai-custom-topic"
-              aria-label="주제 직접 입력"
+              aria-label={t("templateAi.customTopicLabel")}
               value={customTopic}
               onChange={(event) => setCustomTopic(event.target.value)}
-              placeholder="예: 사내 행사 안내, 정산 마감 안내"
+              placeholder={t("templateAi.customTopicPlaceholder")}
               maxLength={60}
             />
             <p className="text-xs text-muted-foreground">
-              기존 목록에 없는 시나리오를 만들고 싶을 때 직접 입력해 주세요.
+              {t("templateAi.customTopicDescription")}
             </p>
           </div>
         ) : null}
 
         <div className="space-y-2">
-          <Label>문체</Label>
+          <Label>{t("templateAi.toneLabel")}</Label>
           <Select value={tone} onValueChange={(value) => setTone(value as typeof tone)}>
             <SelectTrigger>
-              <SelectValue placeholder="문체를 선택하세요" />
+              <SelectValue placeholder={t("templateAi.tonePlaceholder")} />
             </SelectTrigger>
             <SelectContent>
               {templateAiToneOptions.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {templateAiToneLabels[option]}
+                  {toneLabels[option]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -359,18 +391,18 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label>구분 난이도</Label>
+          <Label>{t("templateAi.difficultyLabel")}</Label>
           <Select
             value={difficulty}
             onValueChange={(value) => setDifficulty(value as typeof difficulty)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="구분 난이도를 선택하세요" />
+              <SelectValue placeholder={t("templateAi.difficultyPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
               {templateAiDifficultyOptions.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {templateAiDifficultyLabels[option]}
+                  {difficultyLabels[option]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -378,16 +410,16 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label>추가 요청사항</Label>
+          <Label>{t("templateAi.additionalRequestLabel")}</Label>
           <Textarea
-            aria-label="추가 요청사항"
+            aria-label={t("templateAi.additionalRequestLabel")}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder="원하는 분위기, 대상자 특성, 추가 요구사항을 입력해 주세요."
+            placeholder={t("templateAi.additionalRequestPlaceholder")}
             className="min-h-[180px]"
             maxLength={800}
           />
-          <p className="text-xs text-muted-foreground">{prompt.length}/800자</p>
+          <p className="text-xs text-muted-foreground">{prompt.length}/800</p>
         </div>
       </Card>
 
@@ -395,21 +427,20 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
         <Card className="space-y-3 p-5">
           {renderReferenceAttachmentField({
             id: "template-ai-mail-body-reference",
-            label: "메일본문 첨부파일",
+            label: t("templateAi.mailBodyAttachmentLabel"),
             selectedFile: mailBodyReferenceAttachment,
             onChange: (files) => handleReferenceAttachmentChange("mail", files),
           })}
           {renderReferenceAttachmentField({
             id: "template-ai-malicious-reference",
-            label: "악성메일본문 첨부파일",
+            label: t("templateAi.maliciousBodyAttachmentLabel"),
             selectedFile: maliciousPageReferenceAttachment,
             onChange: (files) => handleReferenceAttachmentChange("malicious", files),
           })}
         </Card>
 
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-          AI가 생성한 내용과 첨부파일 반영 결과는 초안입니다. 템플릿 작성 화면에서
-          미리보기와 내용을 반드시 검토한 뒤 반영해 주세요.
+          {t("templateAi.draftNotice")}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -422,10 +453,10 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
             ) : (
               <Sparkles className="mr-2 h-4 w-4" />
             )}
-            템플릿 생성
+            {t("templateAi.generateButton")}
           </Button>
           {requiresCustomTopic && !canGenerate ? (
-            <p className="text-xs text-destructive">기타를 선택한 경우 주제를 직접 입력해 주세요.</p>
+            <p className="text-xs text-destructive">{t("templateAi.customTopicRequired")}</p>
           ) : null}
           {candidates.length > 0 ? (
             <Button
@@ -434,7 +465,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
               disabled={generateMutation.isPending}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              후보 비교로 돌아가기
+              {t("templateAi.backToCandidates")}
             </Button>
           ) : null}
         </div>
@@ -445,19 +476,19 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
   );
 
   const renderCandidatesStep = () => (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">2단계. 후보 비교 및 선택</h3>
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-1">
+          <h3 className="text-lg font-semibold">{t("templateAi.candidatesStepTitle")}</h3>
           <p className="text-sm text-muted-foreground">
-            후보 4개를 비교하고 하나를 선택해 현재 템플릿 작성 화면에 반영합니다.
+            {t("templateAi.candidatesStepDescription")}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={handleBackToOptions} disabled={generateMutation.isPending}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            옵션 다시 설정
+            {t("templateAi.backToOptions")}
           </Button>
           <Button
             variant="outline"
@@ -465,7 +496,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
             disabled={generateMutation.isPending}
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            전체 재생성
+            {t("templateAi.regenerateAll")}
           </Button>
           <Button
             variant="outline"
@@ -473,14 +504,14 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
             disabled={generateMutation.isPending || !selectedCandidate}
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            선택 제외 나머지 재생성
+            {t("templateAi.regenerateExceptSelected")}
           </Button>
           <Button
             variant="secondary"
             onClick={handleApply}
             disabled={!selectedCandidate || generateMutation.isPending}
           >
-            선택한 후보 반영
+            {t("templateAi.applySelected")}
           </Button>
         </div>
       </div>
@@ -489,7 +520,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          {candidates.length === 0 ? "후보가 없습니다." : `${pairPage + 1} / ${maxPairPage + 1}`}
+          {candidates.length === 0 ? t("templateAi.noCandidates") : `${pairPage + 1} / ${maxPairPage + 1}`}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -498,7 +529,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
             onClick={() => setPairPage((current) => Math.max(0, current - 1))}
             disabled={pairPage === 0}
           >
-            이전 2개
+            {t("templateAi.previousTwo")}
           </Button>
           <Button
             variant="outline"
@@ -506,14 +537,14 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
             onClick={() => setPairPage((current) => Math.min(maxPairPage, current + 1))}
             disabled={pairPage >= maxPairPage}
           >
-            다음 2개
+            {t("templateAi.nextTwo")}
           </Button>
         </div>
       </div>
 
       {visibleCandidates.length === 0 ? (
         <Card className="p-8 text-center text-sm text-muted-foreground">
-          생성된 후보가 없습니다. 옵션을 다시 설정하고 새 템플릿을 생성해 주세요.
+          {t("templateAi.noGeneratedCandidates")}
         </Card>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
@@ -535,14 +566,14 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
                     size="sm"
                     onClick={() => setSelectedCandidateId(candidate.id)}
                   >
-                    {isSelected ? "선택됨" : "이 후보 선택"}
+                    {isSelected ? t("templateAi.selected") : t("templateAi.selectCandidate")}
                   </Button>
                 </div>
 
                 <Tabs defaultValue="body" className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="body">메일본문</TabsTrigger>
-                    <TabsTrigger value="malicious">악성메일본문</TabsTrigger>
+                    <TabsTrigger value="body">{t("templateAi.mailBodyTab")}</TabsTrigger>
+                    <TabsTrigger value="malicious">{t("templateAi.maliciousBodyTab")}</TabsTrigger>
                   </TabsList>
                   <TabsContent value="body" className="space-y-3">
                     <div
@@ -565,7 +596,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
                 <div className="flex justify-end">
                   <Button variant="ghost" size="sm" onClick={() => setFocusedCandidate(candidate)}>
                     <Eye className="mr-2 h-4 w-4" />
-                    크게 보기
+                    {t("templateAi.zoomPreview")}
                   </Button>
                 </div>
               </Card>
@@ -584,11 +615,11 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
           data-testid={step === "options" ? "template-ai-options-dialog" : "template-ai-candidates-dialog"}
         >
           <DialogHeader>
-            <DialogTitle>AI 템플릿 생성</DialogTitle>
+            <DialogTitle>{t("templateAi.dialogTitle")}</DialogTitle>
             <DialogDescription>
               {step === "options"
-                ? "생성 조건을 입력하고 템플릿을 생성합니다."
-                : "후보를 비교하고 하나를 선택해 템플릿 작성 화면에 반영합니다."}
+                ? t("templateAi.dialogDescriptionOptions")
+                : t("templateAi.dialogDescriptionCandidates")}
             </DialogDescription>
           </DialogHeader>
 
@@ -602,14 +633,14 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
       >
         <DialogContent className={focusedDialogContentClass}>
           <DialogHeader>
-            <DialogTitle>{focusedCandidate?.subject ?? "후보 미리보기"}</DialogTitle>
+            <DialogTitle>{focusedCandidate?.subject ?? t("templateAi.previewTitle")}</DialogTitle>
             <DialogDescription>{focusedCandidate?.summary ?? ""}</DialogDescription>
           </DialogHeader>
           {focusedCandidate ? (
             <Tabs defaultValue="body" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="body">메일본문</TabsTrigger>
-                <TabsTrigger value="malicious">악성메일본문</TabsTrigger>
+                <TabsTrigger value="body">{t("templateAi.mailBodyTab")}</TabsTrigger>
+                <TabsTrigger value="malicious">{t("templateAi.maliciousBodyTab")}</TabsTrigger>
               </TabsList>
               <TabsContent value="body">
                 <div className={cn(previewSurfaceClass, "max-h-[70vh]")}>

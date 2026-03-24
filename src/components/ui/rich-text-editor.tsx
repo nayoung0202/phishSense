@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { TemplatePreviewFrame } from "@/components/template-preview-frame";
 import { TEMPLATE_PREVIEW_SANDBOX_CLASS } from "@/lib/templatePreview";
+import { useI18n } from "@/components/I18nProvider";
 import {
   Bold,
   Italic,
@@ -42,15 +43,6 @@ interface ToolbarItem {
   icon: ReactNode;
 }
 
-const toolbarItems: ToolbarItem[] = [
-  { label: "굵게", command: "bold", icon: <Bold className="h-3.5 w-3.5" /> },
-  { label: "기울임", command: "italic", icon: <Italic className="h-3.5 w-3.5" /> },
-  { label: "밑줄", command: "underline", icon: <Underline className="h-3.5 w-3.5" /> },
-  { label: "취소선", command: "strikeThrough", icon: <Strikethrough className="h-3.5 w-3.5" /> },
-  { label: "불릿", command: "insertUnorderedList", icon: <List className="h-3.5 w-3.5" /> },
-  { label: "번호", command: "insertOrderedList", icon: <ListOrdered className="h-3.5 w-3.5" /> },
-];
-
 type EditorMode = "edit" | "html" | "preview";
 
 export function RichTextEditor({
@@ -62,8 +54,17 @@ export function RichTextEditor({
   previewHtml,
   editTheme = "default",
 }: RichTextEditorProps) {
+  const { t } = useI18n();
   const editorRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<EditorMode>("edit");
+  const toolbarItems: ToolbarItem[] = [
+    { label: t("richTextEditor.bold"), command: "bold", icon: <Bold className="h-3.5 w-3.5" /> },
+    { label: t("richTextEditor.italic"), command: "italic", icon: <Italic className="h-3.5 w-3.5" /> },
+    { label: t("richTextEditor.underline"), command: "underline", icon: <Underline className="h-3.5 w-3.5" /> },
+    { label: t("richTextEditor.strike"), command: "strikeThrough", icon: <Strikethrough className="h-3.5 w-3.5" /> },
+    { label: t("richTextEditor.bulletedList"), command: "insertUnorderedList", icon: <List className="h-3.5 w-3.5" /> },
+    { label: t("richTextEditor.numberedList"), command: "insertOrderedList", icon: <ListOrdered className="h-3.5 w-3.5" /> },
+  ];
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -115,11 +116,11 @@ export function RichTextEditor({
     editor.focus();
 
     if (command === "createLink") {
-      const url = window.prompt("링크 URL을 입력하세요:");
+      const url = window.prompt(t("richTextEditor.linkPrompt"));
       if (!url) return;
       document.execCommand("createLink", false, url);
     } else if (command === "insertImage") {
-      const url = window.prompt("이미지 URL을 입력하세요:");
+      const url = window.prompt(t("richTextEditor.imagePrompt"));
       if (!url) return;
       document.execCommand("insertImage", false, url);
     } else {
@@ -161,7 +162,7 @@ export function RichTextEditor({
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          title="링크"
+          title={t("richTextEditor.link")}
           disabled={mode !== "edit"}
           onMouseDown={(event) => {
             event.preventDefault();
@@ -175,7 +176,7 @@ export function RichTextEditor({
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          title="이미지"
+          title={t("richTextEditor.image")}
           disabled={mode !== "edit"}
           onMouseDown={(event) => {
             event.preventDefault();
@@ -189,7 +190,7 @@ export function RichTextEditor({
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          title="형식 제거"
+          title={t("richTextEditor.clearFormatting")}
           disabled={mode !== "edit"}
           onMouseDown={(event) => {
             event.preventDefault();
@@ -211,7 +212,11 @@ export function RichTextEditor({
                 setMode(item);
               }}
             >
-              {item === "edit" ? "편집" : item === "html" ? "HTML" : "미리보기"}
+              {item === "edit"
+                ? t("richTextEditor.modeEdit")
+                : item === "html"
+                  ? "HTML"
+                  : t("richTextEditor.modePreview")}
             </Button>
           ))}
         </div>
@@ -234,7 +239,7 @@ export function RichTextEditor({
               className="rounded-md shadow-sm"
             />
           ) : (
-            <p className="p-4 text-sm text-muted-foreground">입력된 내용이 없습니다.</p>
+            <p className="p-4 text-sm text-muted-foreground">{t("richTextEditor.emptyPreview")}</p>
           )}
         </div>
       ) : (

@@ -50,21 +50,21 @@ export function DashboardHeader() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>{t("관리자")}</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("account.admin")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem data-testid="button-profile">
               <User className="mr-2 h-4 w-4" />
-              {t("프로필")}
+              {t("account.profile")}
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/settings/general">
                 <Settings2 className="mr-2 h-4 w-4" />
-                설정
+                {t("account.settings")}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleLogout} data-testid="button-logout">
               <LogOut className="mr-2 h-4 w-4" />
-              로그아웃
+              {t("account.logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

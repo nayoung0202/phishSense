@@ -116,8 +116,8 @@ export default function Targets() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/targets"] });
       toast({
-        title: t("삭제 완료"),
-        description: t("훈련 대상자가 삭제되었습니다."),
+        title: t("common.delete"),
+        description: t("targets.deleted"),
       });
     },
   });
@@ -160,7 +160,7 @@ export default function Targets() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm(t("정말 삭제하시겠습니까?"))) {
+    if (confirm(t("common.confirmDelete"))) {
       deleteMutation.mutate(id);
     }
   };
@@ -171,7 +171,7 @@ export default function Targets() {
         credentials: "include",
       });
       if (!response.ok) {
-        throw new Error(t("샘플 템플릿을 다운로드할 수 없습니다."));
+        throw new Error(t("targets.sampleDownloadFailed"));
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -184,8 +184,8 @@ export default function Targets() {
       URL.revokeObjectURL(url);
     } catch (error) {
       toast({
-        title: t("다운로드 실패"),
-        description: error instanceof Error ? error.message : t("샘플 템플릿을 가져오지 못했습니다."),
+        title: t("targets.downloadFailed"),
+        description: error instanceof Error ? error.message : t("targets.sampleFetchFailed"),
         variant: "destructive",
       });
     }
@@ -200,8 +200,8 @@ export default function Targets() {
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
       toast({
-        title: t("지원하지 않는 형식"),
-        description: t("엑셀(.xlsx) 파일만 업로드할 수 있습니다."),
+        title: t("targets.unsupportedFormat"),
+        description: t("targets.onlyXlsx"),
         variant: "destructive",
       });
       event.target.value = "";
@@ -212,19 +212,17 @@ export default function Targets() {
       const result = await importTrainingTargetsExcel(file);
       setImportResult(result);
       toast({
-        title: t("업로드 완료"),
-        description:
-          locale === "en"
-            ? `${result.successCount.toLocaleString(intlLocale)} of ${result.totalRows.toLocaleString(intlLocale)} rows imported`
-            : locale === "ja"
-              ? `${result.totalRows.toLocaleString(intlLocale)}件中 ${result.successCount.toLocaleString(intlLocale)}件成功`
-              : `총 ${result.totalRows.toLocaleString(intlLocale)}건 중 ${result.successCount.toLocaleString(intlLocale)}건 성공`,
+        title: t("targets.uploadComplete"),
+        description: t("targets.importRowsDescription", {
+          total: result.totalRows.toLocaleString(intlLocale),
+          success: result.successCount.toLocaleString(intlLocale),
+        }),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/targets"] });
     } catch (error) {
       toast({
-        title: t("업로드 실패"),
-        description: error instanceof Error ? error.message : t("엑셀 업로드에 실패했습니다."),
+        title: t("targets.uploadFailed"),
+        description: error instanceof Error ? error.message : t("targets.uploadError"),
         variant: "destructive",
       });
     } finally {
@@ -237,7 +235,7 @@ export default function Targets() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold mb-2">{t("훈련 대상 관리")}</h1>
+          <h1 className="text-4xl font-bold mb-2">{t("targets.title")}</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -246,7 +244,7 @@ export default function Targets() {
             data-testid="button-download-template"
           >
             <Download className="w-4 h-4 mr-2" />
-            {t("샘플 엑셀 다운로드")}
+            {t("targets.downloadSample")}
           </Button>
           <Button
             variant="outline"
@@ -259,7 +257,7 @@ export default function Targets() {
             ) : (
               <Upload className="w-4 h-4 mr-2" />
             )}
-            {t("엑셀 업로드")}
+            {t("targets.uploadExcel")}
           </Button>
           <input
             ref={fileInputRef}
@@ -271,7 +269,7 @@ export default function Targets() {
           <Link href="/targets/new">
             <Button data-testid="button-add-target">
               <Plus className="w-4 h-4 mr-2" />
-              {t("대상자 추가")}
+              {t("targets.addTarget")}
             </Button>
           </Link>
         </div>
@@ -287,7 +285,7 @@ export default function Targets() {
         <div className="mb-6 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder={t("이름, 이메일, 소속으로 검색...")}
+            placeholder={t("targets.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -299,37 +297,31 @@ export default function Targets() {
           <Card className="mb-4 border border-amber-200 bg-amber-50 p-4 space-y-3">
             <div className="flex flex-wrap gap-4 text-sm">
               <span>
-                {locale === "en"
-                  ? `${importResult.totalRows.toLocaleString(intlLocale)} rows processed`
-                  : locale === "ja"
-                    ? `合計 ${importResult.totalRows.toLocaleString(intlLocale)}件処理`
-                    : `총 ${importResult.totalRows.toLocaleString(intlLocale)}건 처리`}
+                {t("targets.processedSummary", {
+                  total: importResult.totalRows.toLocaleString(intlLocale),
+                })}
               </span>
               <span className="text-emerald-700">
-                {locale === "en"
-                  ? `${importResult.successCount.toLocaleString(intlLocale)} succeeded`
-                  : locale === "ja"
-                    ? `成功 ${importResult.successCount.toLocaleString(intlLocale)}件`
-                    : `성공 ${importResult.successCount.toLocaleString(intlLocale)}건`}
+                {t("targets.successSummary", {
+                  count: importResult.successCount.toLocaleString(intlLocale),
+                })}
               </span>
               <span className="text-destructive">
-                {locale === "en"
-                  ? `${importResult.failCount.toLocaleString(intlLocale)} failed`
-                  : locale === "ja"
-                    ? `失敗 ${importResult.failCount.toLocaleString(intlLocale)}件`
-                    : `실패 ${importResult.failCount.toLocaleString(intlLocale)}건`}
+                {t("targets.failureSummary", {
+                  count: importResult.failCount.toLocaleString(intlLocale),
+                })}
               </span>
             </div>
             {importResult.failures.length > 0 && (
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-amber-800">{t("실패 항목")}</p>
+                <p className="text-sm font-semibold text-amber-800">{t("targets.failedRows")}</p>
                 <div className="max-h-40 overflow-auto rounded-md border border-amber-200 bg-white">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-24">{t("행 번호")}</TableHead>
-                        <TableHead>{t("이메일")}</TableHead>
-                        <TableHead>{t("사유")}</TableHead>
+                        <TableHead className="w-24">{t("targets.rowNumber")}</TableHead>
+                        <TableHead>{t("common.email")}</TableHead>
+                        <TableHead>{t("targets.reason")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -345,11 +337,9 @@ export default function Targets() {
                 </div>
                 {importResult.failCount > importResult.failures.length && (
                   <p className="text-xs text-muted-foreground">
-                    {locale === "en"
-                      ? `Showing up to ${importResult.failures.length.toLocaleString(intlLocale)} rows.`
-                      : locale === "ja"
-                        ? `最大 ${importResult.failures.length.toLocaleString(intlLocale)}件まで表示します。`
-                        : `최대 ${importResult.failures.length.toLocaleString(intlLocale)}건까지만 표시됩니다.`}
+                    {t("targets.showingUpToRows", {
+                      count: importResult.failures.length.toLocaleString(intlLocale),
+                    })}
                   </p>
                 )}
               </div>
@@ -360,25 +350,20 @@ export default function Targets() {
         {selectedTargets.length > 0 && (
           <div className="mb-4 flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
-              {locale === "en"
-                ? `${selectedTargets.length.toLocaleString(intlLocale)} selected`
-                : locale === "ja"
-                  ? `${selectedTargets.length.toLocaleString(intlLocale)}名選択`
-                  : `${selectedTargets.length.toLocaleString(intlLocale)}명 선택됨`}
+              {t("targets.selectedCount", {
+                count: selectedTargets.length.toLocaleString(intlLocale),
+              })}
             </span>
             <Button variant="outline" size="sm" data-testid="button-add-to-group">
-              {t("그룹에 추가")}
+              {t("targets.addToGroup")}
             </Button>
             <Button 
               variant="outline" 
               size="sm"
               onClick={() => {
-                const message =
-                  locale === "en"
-                    ? `Delete ${selectedTargets.length.toLocaleString(intlLocale)} selected targets?`
-                    : locale === "ja"
-                      ? `${selectedTargets.length.toLocaleString(intlLocale)}名を削除しますか？`
-                      : `${selectedTargets.length.toLocaleString(intlLocale)}명을 삭제하시겠습니까?`;
+                const message = t("targets.deleteSelectedConfirm", {
+                  count: selectedTargets.length.toLocaleString(intlLocale),
+                });
                 if (confirm(message)) {
                   selectedTargets.forEach(id => deleteMutation.mutate(id));
                   setSelectedTargets([]);
@@ -386,7 +371,7 @@ export default function Targets() {
               }}
               data-testid="button-delete-selected"
             >
-              선택 삭제
+              {t("targets.deleteSelected")}
             </Button>
           </div>
         )}
@@ -402,12 +387,12 @@ export default function Targets() {
                     data-testid="checkbox-select-all"
                   />
                 </TableHead>
-                <TableHead>{t("이름")}</TableHead>
-                <TableHead>{t("이메일")}</TableHead>
-                <TableHead>{t("소속")}</TableHead>
-                <TableHead>{t("태그")}</TableHead>
-                <TableHead>{t("상태")}</TableHead>
-                <TableHead className="text-right">{t("액션")}</TableHead>
+                <TableHead>{t("common.name")}</TableHead>
+                <TableHead>{t("common.email")}</TableHead>
+                <TableHead>{t("common.department")}</TableHead>
+                <TableHead>{t("common.tags")}</TableHead>
+                <TableHead>{t("common.status")}</TableHead>
+                <TableHead className="text-right">{t("common.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -420,7 +405,7 @@ export default function Targets() {
               ) : filteredTargets.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    {t("훈련 대상자가 없습니다")}
+                    {t("targets.noTargets")}
                   </TableCell>
                 </TableRow>
               ) : (

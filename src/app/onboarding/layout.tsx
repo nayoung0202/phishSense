@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
+import { getMessages, LOCALE_COOKIE_NAME, resolveLocale } from "@/lib/i18n";
 
-export const metadata: Metadata = {
-  title: "온보딩 - PhishSense",
-  description: "PhishSense 초기 설정",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value ?? null);
+  const messages = getMessages(locale);
+
+  return {
+    title: messages["metadata.onboarding.title"],
+    description: messages["metadata.onboarding.description"],
+  };
+}
 
 /**
  * /onboarding 전용 레이아웃

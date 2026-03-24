@@ -1,5 +1,6 @@
 import { useToast } from "@/hooks/use-toast"
 import { useI18n } from "@/components/I18nProvider"
+import { getMessages, type TranslationKey } from "@/lib/i18n"
 import {
   Toast,
   ToastClose,
@@ -11,7 +12,10 @@ import {
 
 export function Toaster() {
   const { toasts } = useToast()
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
+  const messages = getMessages(locale)
+  const translateMaybe = (value: string) =>
+    value in messages ? t(value as TranslationKey) : value
 
   return (
     <ToastProvider>
@@ -19,10 +23,10 @@ export function Toaster() {
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
-              {title && <ToastTitle>{typeof title === "string" ? t(title) : title}</ToastTitle>}
+              {title && <ToastTitle>{typeof title === "string" ? translateMaybe(title) : title}</ToastTitle>}
               {description && (
                 <ToastDescription>
-                  {typeof description === "string" ? t(description) : description}
+                  {typeof description === "string" ? translateMaybe(description) : description}
                 </ToastDescription>
               )}
             </div>

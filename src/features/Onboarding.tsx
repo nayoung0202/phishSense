@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useI18n } from "@/components/I18nProvider";
+import type { TranslationKey, TranslationValue } from "@/lib/i18n";
 
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
 const ENCODED_SLASH_PATTERN = /%2f/i;
@@ -70,21 +71,23 @@ type PlatformTenantMutationResponse = PlatformContextResponse & {
   };
 };
 
-const roleLabelMap: Record<string, string> = {
-  OWNER: "소유자",
-  ADMIN: "관리자",
-  MEMBER: "구성원",
-  USER: "사용자",
+const roleLabelMap: Record<string, TranslationKey> = {
+  OWNER: "onboarding.role.owner",
+  ADMIN: "onboarding.role.admin",
+  MEMBER: "onboarding.role.member",
+  USER: "onboarding.role.user",
 };
 
-const entitlementStatusLabelMap: Record<string, string> = {
-  ACTIVE: "이용 가능",
-  SUSPENDED: "이용 일시 중지",
-  EXPIRED: "이용 기간 만료",
-  PENDING: "확인 중",
+const entitlementStatusLabelMap: Record<string, TranslationKey> = {
+  ACTIVE: "onboarding.entitlementStatus.active",
+  SUSPENDED: "onboarding.entitlementStatus.suspended",
+  EXPIRED: "onboarding.entitlementStatus.expired",
+  PENDING: "onboarding.entitlementStatus.pending",
 };
 
-const fetchPlatformContext = async (): Promise<PlatformContextResponse> => {
+const fetchPlatformContext = async (
+  fallbackError: string,
+): Promise<PlatformContextResponse> => {
   const response = await fetch("/api/auth/platform-context", {
     credentials: "include",
     cache: "no-store",
@@ -95,13 +98,16 @@ const fetchPlatformContext = async (): Promise<PlatformContextResponse> => {
   };
 
   if (!response.ok) {
-    throw new Error(body.error || "이용 상태를 확인하지 못했습니다.");
+    throw new Error(body.error || fallbackError);
   }
 
   return body;
 };
 
-const updateTenantContext = async (tenantId: string): Promise<PlatformContextResponse> => {
+const updateTenantContext = async (
+  tenantId: string,
+  fallbackError: string,
+): Promise<PlatformContextResponse> => {
   const response = await fetch("/api/auth/session/tenant", {
     method: "PATCH",
     credentials: "include",
@@ -116,7 +122,7 @@ const updateTenantContext = async (tenantId: string): Promise<PlatformContextRes
   };
 
   if (!response.ok) {
-    throw new Error(body.error || "회사 또는 조직을 선택하지 못했습니다.");
+    throw new Error(body.error || fallbackError);
   }
 
   return body;
@@ -124,6 +130,7 @@ const updateTenantContext = async (tenantId: string): Promise<PlatformContextRes
 
 const createTenantContext = async (
   name: string,
+  fallbackError: string,
 ): Promise<PlatformTenantMutationResponse> => {
   const response = await fetch("/api/platform/tenants", {
     method: "POST",
@@ -139,37 +146,45 @@ const createTenantContext = async (
   };
 
   if (!response.ok) {
-    throw new Error(body.error || "회사 또는 조직을 생성하지 못했습니다.");
+    throw new Error(body.error || fallbackError);
   }
 
   return body;
 };
 
-const statusMessageMap: Record<PlatformContextResponse["status"], string> = {
-  ready: "이용 준비가 완료되었습니다.",
-  dev_bypass: "개발 환경에서 바로 이용할 수 있습니다.",
-  tenant_missing: "아직 소속된 회사 또는 조직이 없습니다. 먼저 회사 또는 조직을 만들어 주세요.",
-  tenant_selection_required: "이용할 회사 또는 조직을 선택해 주세요.",
-  entitlement_pending: "이용 권한 정보를 확인하는 중입니다. 잠시 후 다시 시도해 주세요.",
-  entitlement_inactive:
-    "현재 소속된 회사 또는 조직에서는 PhishSense를 이용할 수 없습니다.",
-  platform_token_missing: "로그인 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
-  platform_not_configured:
-    "서비스 설정이 아직 완료되지 않았습니다. 관리자에게 문의해 주세요.",
-  platform_unauthorized: "로그인 정보 확인에 실패했습니다. 다시 로그인해 주세요.",
-  platform_unavailable: "서비스 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+const statusMessageMap: Record<PlatformContextResponse["status"], TranslationKey> = {
+  ready: "onboarding.message.ready",
+  dev_bypass: "onboarding.message.devBypass",
+  tenant_missing: "onboarding.message.tenantMissing",
+  tenant_selection_required: "onboarding.message.tenantSelectionRequired",
+  entitlement_pending: "onboarding.message.entitlementPending",
+  entitlement_inactive: "onboarding.message.entitlementInactive",
+  platform_token_missing: "onboarding.message.platformTokenMissing",
+  platform_not_configured: "onboarding.message.platformNotConfigured",
+  platform_unauthorized: "onboarding.message.platformUnauthorized",
+  platform_unavailable: "onboarding.message.platformUnavailable",
 };
 
 const getStatusMessage = (
-  t: (key: string) => string,
+  t: (key: TranslationKey, values?: Record<string, TranslationValue>) => string,
   status: PlatformContextResponse["status"],
-) => t(statusMessageMap[status] || "이용 상태를 확인해 주세요.");
+) => t(statusMessageMap[status] || "onboarding.message.fallback");
 
-const formatRoleLabel = (t: (key: string) => string, role: string) =>
-  t(roleLabelMap[role] ?? role);
+const formatRoleLabel = (
+  t: (key: TranslationKey, values?: Record<string, TranslationValue>) => string,
+  role: string,
+) => {
+  const key = roleLabelMap[role];
+  return key ? t(key) : role;
+};
 
-const formatEntitlementStatus = (t: (key: string) => string, status: string) =>
-  t(entitlementStatusLabelMap[status] ?? status);
+const formatEntitlementStatus = (
+  t: (key: TranslationKey, values?: Record<string, TranslationValue>) => string,
+  status: string,
+) => {
+  const key = entitlementStatusLabelMap[status];
+  return key ? t(key) : status;
+};
 
 const isProvisioningStatus = (status: PlatformContextResponse["status"]) =>
   status === "entitlement_pending";
@@ -215,7 +230,7 @@ export default function Onboarding() {
 
   const contextQuery = useQuery({
     queryKey: PLATFORM_CONTEXT_QUERY_KEY,
-    queryFn: fetchPlatformContext,
+    queryFn: () => fetchPlatformContext(t("onboarding.fetchFailed")),
     retry: false,
     refetchInterval: isProvisioning ? PROVISIONING_POLL_INTERVAL_MS : false,
     refetchIntervalInBackground: true,
@@ -234,14 +249,16 @@ export default function Onboarding() {
   };
 
   const selectTenantMutation = useMutation({
-    mutationFn: updateTenantContext,
+    mutationFn: (tenantId: string) =>
+      updateTenantContext(tenantId, t("onboarding.selectTenantError")),
     onSuccess: (data) => {
       handleContextUpdate(data);
     },
   });
 
   const createTenantMutation = useMutation({
-    mutationFn: createTenantContext,
+    mutationFn: (name: string) =>
+      createTenantContext(name, t("onboarding.createTenantFailed")),
     onSuccess: (data) => {
       setTenantName("");
       handleContextUpdate(data);
@@ -274,7 +291,7 @@ export default function Onboarding() {
   if (contextQuery.isLoading) {
     return (
       <div className="rounded-lg border border-border bg-muted/40 p-6 text-center text-sm text-muted-foreground">
-        {t("이용 상태를 확인하고 있습니다.")}
+        {t("onboarding.loading")}
       </div>
     );
   }
@@ -283,7 +300,7 @@ export default function Onboarding() {
     return (
       <div className="space-y-4">
         <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-          {t("이용 상태를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.")}
+          {t("onboarding.reloadError")}
         </div>
         <div className="flex justify-center">
           <Button variant="outline" onClick={() => void contextQuery.refetch()}>
@@ -304,13 +321,13 @@ export default function Onboarding() {
   const showManualRefreshButton =
     provisioningTimedOut || data.status === "platform_unavailable";
   const provisioningTitle = createTenantMutation.isPending
-    ? t("회사 또는 조직을 만드는 중입니다.")
+    ? t("onboarding.provisioning.createTenant")
     : selectTenantMutation.isPending
-      ? t("회사 또는 조직을 연결하는 중입니다.")
-      : t("이용 권한을 연결하는 중입니다.");
+      ? t("onboarding.provisioning.connectTenant")
+      : t("onboarding.provisioning.connectEntitlement");
   const provisioningDescription = provisioningTimedOut
-    ? t("연결이 지연되고 있습니다. 잠시 후 상태를 다시 확인해 주세요.")
-    : t("이용 권한이 연결되면 자동으로 다음 화면으로 이동합니다.");
+    ? t("onboarding.provisioning.delayed")
+    : t("onboarding.provisioning.redirect");
 
   return (
     <div className="space-y-6">
@@ -323,7 +340,7 @@ export default function Onboarding() {
           {showManualRefreshButton ? (
             <div className="mt-5 flex justify-center">
               <Button variant="outline" onClick={() => void contextQuery.refetch()}>
-                {t("상태 다시 확인")}
+                {t("onboarding.checkStatus")}
               </Button>
             </div>
           ) : null}
@@ -331,39 +348,39 @@ export default function Onboarding() {
       ) : (
         <>
           <div className="rounded-lg border border-border bg-muted/40 p-5 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">{t("현재 상태")}</p>
+            <p className="font-medium text-foreground">{t("onboarding.currentStatus")}</p>
             <p className="mt-2">{message}</p>
           </div>
 
           {data.platformProduct ? (
             <div className="rounded-lg border border-border bg-card p-5 text-sm">
-              <p className="font-medium text-foreground">{t("구독 정보")}</p>
+              <p className="font-medium text-foreground">{t("onboarding.subscriptionInfo")}</p>
               <div className="mt-3 space-y-1 text-muted-foreground">
-                <p>{t("상태")}: {formatEntitlementStatus(t, data.platformProduct.status)}</p>
-                <p>{t("플랜")}: {data.platformProduct.plan || "-"}</p>
-                <p>{t("좌석 수")}: {data.platformProduct.seatLimit ?? "-"}</p>
-                <p>{t("만료일")}: {data.platformProduct.expiresAt || "-"}</p>
+                <p>{t("common.status")}: {formatEntitlementStatus(t, data.platformProduct.status)}</p>
+                <p>{t("onboarding.plan")}: {data.platformProduct.plan || "-"}</p>
+                <p>{t("onboarding.seatLimit")}: {data.platformProduct.seatLimit ?? "-"}</p>
+                <p>{t("onboarding.expiresAt")}: {data.platformProduct.expiresAt || "-"}</p>
               </div>
             </div>
           ) : null}
 
           {data.localEntitlement ? (
             <div className="rounded-lg border border-border bg-card p-5 text-sm">
-              <p className="font-medium text-foreground">{t("이용 권한 정보")}</p>
+              <p className="font-medium text-foreground">{t("onboarding.entitlementInfo")}</p>
               <div className="mt-3 space-y-1 text-muted-foreground">
-                <p>{t("상태")}: {formatEntitlementStatus(t, data.localEntitlement.status)}</p>
-                <p>{t("플랜")}: {data.localEntitlement.planCode || "-"}</p>
-                <p>{t("좌석 수")}: {data.localEntitlement.seatLimit ?? "-"}</p>
-                <p>{t("만료일")}: {data.localEntitlement.expiresAt || "-"}</p>
+                <p>{t("common.status")}: {formatEntitlementStatus(t, data.localEntitlement.status)}</p>
+                <p>{t("onboarding.plan")}: {data.localEntitlement.planCode || "-"}</p>
+                <p>{t("onboarding.seatLimit")}: {data.localEntitlement.seatLimit ?? "-"}</p>
+                <p>{t("onboarding.expiresAt")}: {data.localEntitlement.expiresAt || "-"}</p>
               </div>
             </div>
           ) : null}
 
           {data.status === "tenant_missing" ? (
             <div className="rounded-lg border border-border bg-card p-5">
-              <p className="font-medium text-foreground">{t("회사 또는 조직 만들기")}</p>
+              <p className="font-medium text-foreground">{t("onboarding.createTenantTitle")}</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                {t("사용할 회사 또는 조직 이름을 입력해 주세요. 생성 후 이용 권한을 다시 확인합니다.")}
+                {t("onboarding.createTenantDescription")}
               </p>
               <form
                 className="mt-4 space-y-4"
@@ -376,13 +393,13 @@ export default function Onboarding() {
                 }}
               >
                 <div className="space-y-2">
-                  <Label htmlFor="tenant-name">{t("회사 또는 조직 이름")}</Label>
+                  <Label htmlFor="tenant-name">{t("onboarding.tenantName")}</Label>
                   <Input
                     id="tenant-name"
                     name="tenantName"
                     value={tenantName}
                     onChange={(event) => setTenantName(event.target.value)}
-                    placeholder={t("예: EVRIZ")}
+                    placeholder={t("onboarding.tenantNamePlaceholder")}
                     autoComplete="organization"
                     disabled={isSubmitting}
                   />
@@ -397,8 +414,8 @@ export default function Onboarding() {
                 <div className="flex justify-end">
                   <Button type="submit" disabled={!trimmedTenantName || isSubmitting}>
                     {createTenantMutation.isPending
-                      ? t("회사 또는 조직을 만드는 중...")
-                      : t("회사 또는 조직 만들기")}
+                      ? t("onboarding.createTenantProgress")
+                      : t("onboarding.createTenantAction")}
                   </Button>
                 </div>
               </form>
@@ -407,9 +424,9 @@ export default function Onboarding() {
 
           {data.status === "tenant_selection_required" ? (
             <div className="rounded-lg border border-border bg-card p-5">
-              <p className="font-medium text-foreground">{t("회사 또는 조직 선택")}</p>
+              <p className="font-medium text-foreground">{t("onboarding.selectTenantTitle")}</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                {t("계속하려면 이용할 회사 또는 조직을 선택해 주세요.")}
+                {t("onboarding.selectTenantDescription")}
               </p>
               <div className="mt-4 space-y-3">
                 {tenantOptions.map((tenant) => (
@@ -426,13 +443,13 @@ export default function Onboarding() {
                         {formatRoleLabel(t, tenant.role)}
                       </span>
                     </span>
-                    <span className="text-xs text-muted-foreground">{t("선택")}</span>
+                    <span className="text-xs text-muted-foreground">{t("onboarding.selectAction")}</span>
                   </button>
                 ))}
               </div>
               {selectTenantMutation.isError ? (
                 <p className="mt-3 text-sm text-red-300">
-                  {t("회사 또는 조직을 선택하지 못했습니다. 잠시 후 다시 시도해 주세요.")}
+                  {t("onboarding.selectTenantError")}
                 </p>
               ) : null}
             </div>
@@ -441,7 +458,7 @@ export default function Onboarding() {
           {showManualRefreshButton ? (
             <div className="flex justify-center">
               <Button variant="outline" onClick={() => void contextQuery.refetch()}>
-                {t("상태 다시 확인")}
+                {t("onboarding.checkStatus")}
               </Button>
             </div>
           ) : null}

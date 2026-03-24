@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, X } from "lucide-react";
 import {
   MAX_ALLOWED_SENDER_DOMAINS,
+  getSmtpValidationErrorCode,
   normalizeSmtpDomain,
   normalizeSmtpDomains,
   validateAllowedSenderDomains,
@@ -17,6 +18,7 @@ import {
   validateSmtpHost,
 } from "@/lib/smtpValidation";
 import type { SmtpConfigResponse, UpdateSmtpConfigPayload } from "@/types/smtp";
+import { useI18n } from "@/components/I18nProvider";
 
 type FormState = {
   name: string;
@@ -93,6 +95,7 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
   { mode, tenantId, initialData, onSubmit, isSubmitting, disabled, onDirtyChange },
   ref,
 ) {
+  const { t } = useI18n();
   const [formState, setFormState] = useState<FormState>(defaultFormState);
   const [passwordInput, setPasswordInput] = useState("");
   const [senderDomainDraft, setSenderDomainDraft] = useState("");
@@ -172,6 +175,38 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
   const isSenderDomainLimitReached =
     normalizedAllowedSenderDomains.length >= MAX_ALLOWED_SENDER_DOMAINS;
 
+  const translateValidationError = useCallback(
+    (
+      error: unknown,
+      fallbackKey:
+        | "smtpForm.hostFallback"
+        | "smtpForm.connectionFallback"
+        | "smtpForm.allowedDomainsFallback",
+    ) => {
+      const code = getSmtpValidationErrorCode(error);
+
+      switch (code) {
+        case "invalid_host":
+          return t("smtpForm.invalidHost");
+        case "invalid_allowed_domain":
+          return t("smtpForm.invalidAllowedDomain");
+        case "allowed_domain_limit":
+          return t("smtpForm.allowedDomainLimit", { count: MAX_ALLOWED_SENDER_DOMAINS });
+        case "invalid_port":
+          return t("smtpForm.invalidPort");
+        case "invalid_security_for_465":
+          return t("smtpForm.invalidSecurityFor465");
+        case "invalid_security_for_587":
+          return t("smtpForm.invalidSecurityFor587");
+        case "invalid_custom_port_security":
+          return t("smtpForm.invalidCustomPortSecurity");
+        default:
+          return error instanceof Error ? error.message : t(fallbackKey);
+      }
+    },
+    [t],
+  );
+
   const isHostFilled = hostValue.length > 0;
   const hostError = useMemo(() => {
     if (!isHostFilled) return null;
@@ -180,9 +215,9 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
       validateSmtpHost(hostValue);
       return null;
     } catch (error) {
-      return error instanceof Error ? error.message : "SMTP 호스트를 확인하세요.";
+      return translateValidationError(error, "smtpForm.hostFallback");
     }
-  }, [hostValue, isHostFilled]);
+  }, [hostValue, isHostFilled, translateValidationError]);
 
   const isCustomPort = portMode === "custom";
   const isPortValid = isCustomPort ? formState.port > 0 && formState.port <= 65535 : true;
@@ -203,10 +238,10 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
     } catch (error) {
       return {
         normalized: null,
-        error: error instanceof Error ? error.message : "SMTP 연결 정보를 확인하세요.",
+        error: translateValidationError(error, "smtpForm.connectionFallback"),
       };
     }
-  }, [formState.port, formState.securityMode, hostError, hostValue, isHostFilled, isPortValid]);
+  }, [formState.port, formState.securityMode, hostError, hostValue, isHostFilled, isPortValid, translateValidationError]);
 
   const canSubmit =
     !disabled &&
@@ -238,9 +273,7 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
 
     if (isSenderDomainLimitReached) {
       setSenderDomainDraft("");
-      setSenderDomainError(
-        `허용 발신 도메인은 최대 ${MAX_ALLOWED_SENDER_DOMAINS}개까지 등록할 수 있습니다.`,
-      );
+      setSenderDomainError(t("smtpForm.allowedDomainLimit", { count: MAX_ALLOWED_SENDER_DOMAINS }));
       return;
     }
 
@@ -253,15 +286,15 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
       setSenderDomainDraft("");
       setSenderDomainError(null);
     } catch (error) {
-      setSenderDomainError(
-        error instanceof Error ? error.message : "허용 발신 도메인을 확인하세요.",
-      );
+      setSenderDomainError(translateValidationError(error, "smtpForm.allowedDomainsFallback"));
     }
   }, [
     handleChange,
     isSenderDomainLimitReached,
     normalizedAllowedSenderDomains,
     senderDomainDraft,
+    t,
+    translateValidationError,
   ]);
 
   const handleRemoveSenderDomain = useCallback(
@@ -323,8 +356,8 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
 
   const submitForm = useCallback(async () => {
     if (!canSubmit || !initialData) {
-      setSubmitError("입력값을 확인하세요.");
-      throw new Error("입력값을 확인하세요.");
+      setSubmitError(t("common.checkInputs"));
+      throw new Error(t("common.checkInputs"));
     }
     setSubmitError(null);
 
@@ -332,16 +365,15 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
     let nextAllowedSenderDomains = normalizedAllowedSenderDomains;
 
     if (!normalizedConnection) {
-      setSubmitError("입력값을 확인하세요.");
-      throw new Error("입력값을 확인하세요.");
+      setSubmitError(t("common.checkInputs"));
+      throw new Error(t("common.checkInputs"));
     }
 
     try {
       nextAllowedSenderDomains = resolveAllowedSenderDomains();
       setSenderDomainError(null);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "허용 발신 도메인을 확인하세요.";
+      const message = translateValidationError(error, "smtpForm.allowedDomainsFallback");
       setSenderDomainError(message);
       setSubmitError(message);
       throw new Error(message);
@@ -386,6 +418,8 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
     passwordInput,
     normalizedAllowedSenderDomains,
     resolveAllowedSenderDomains,
+    t,
+    translateValidationError,
   ]);
 
   useImperativeHandle(ref, () => ({
@@ -403,37 +437,37 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
   return (
     <Card>
       <CardHeader>
-        <CardTitle>발송 설정</CardTitle>
+        <CardTitle>{t("smtpForm.cardTitle")}</CardTitle>
       </CardHeader>
       <CardContent>
         {!initialData ? (
-          <p className="text-sm text-muted-foreground">발송 설정을 불러오고 있습니다. 잠시만 기다려주세요.</p>
+          <p className="text-sm text-muted-foreground">{t("smtpForm.loading")}</p>
         ) : (
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-6 rounded-lg border bg-muted/30 p-4">
               <section className="space-y-4 rounded-lg border bg-background p-4">
                 <div className="space-y-1">
-                  <h3 className="text-sm font-semibold">SMTP 연결 정보</h3>
+                  <h3 className="text-sm font-semibold">{t("smtpForm.connectionTitle")}</h3>
                   <p className="text-xs text-muted-foreground">
-                    메일 전송에 사용할 SMTP 서버 연결 값을 입력합니다.
+                    {t("smtpForm.connectionDescription")}
                   </p>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="smtp-config-name">설정 별칭</Label>
+                    <Label htmlFor="smtp-config-name">{t("smtp.alias")}</Label>
                     <Input
                       id="smtp-config-name"
                       value={formState.name}
                       onChange={(event) => handleChange("name", event.target.value)}
-                      placeholder="예: 보안훈련 기본 발송"
+                      placeholder={t("smtpForm.aliasPlaceholder")}
                       disabled={disabled}
                     />
                     <p className="text-xs text-muted-foreground">
-                      프로젝트 생성 화면에서 발송 설정을 구분하는 표시 이름입니다.
+                      {t("smtpForm.aliasDescription")}
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="smtp-host">SMTP 호스트</Label>
+                    <Label htmlFor="smtp-host">{t("smtp.host")}</Label>
                     <Input
                       id="smtp-host"
                       value={formState.host}
@@ -447,16 +481,16 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>포트</Label>
+                    <Label>{t("smtp.port")}</Label>
                     <Select value={portMode} onValueChange={handlePortModeChange} disabled={disabled}>
                       <SelectTrigger>
-                        <SelectValue placeholder="포트를 선택하세요" />
+                        <SelectValue placeholder={t("smtpForm.portPlaceholder")} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="25">25 (SMTP)</SelectItem>
                         <SelectItem value="465">465 (SMTPS)</SelectItem>
                         <SelectItem value="587">587 (STARTTLS)</SelectItem>
-                        <SelectItem value="custom">직접 입력</SelectItem>
+                        <SelectItem value="custom">{t("smtpForm.customPortOption")}</SelectItem>
                       </SelectContent>
                     </Select>
                     {isCustomPort && (
@@ -467,23 +501,23 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
                         max={65535}
                         value={customPortInput}
                         onChange={handleCustomPortInputChange}
-                        placeholder="포트를 입력하세요"
+                        placeholder={t("smtpForm.customPortPlaceholder")}
                         disabled={disabled}
                       />
                     )}
                     {isCustomPort && !isPortValid && (
-                      <p className="text-sm text-destructive">1~65535 범위의 포트를 입력하세요.</p>
+                      <p className="text-sm text-destructive">{t("smtpForm.invalidPort")}</p>
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label>보안 모드</Label>
+                    <Label>{t("smtp.securityMode")}</Label>
                     <Select
                       value={securityPreset}
                       onValueChange={(value) => handleSecurityPresetChange(value as SecurityPreset)}
                       disabled={disabled}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="보안 방식을 선택" />
+                        <SelectValue placeholder={t("smtpForm.securityPlaceholder")} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="SMTP">SMTP</SelectItem>
@@ -499,8 +533,8 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
 
                 <div className="flex flex-col gap-2 rounded-md border px-3 py-3 md:flex-row md:items-center md:justify-between">
                   <div className="space-y-1">
-                    <Label htmlFor="smtp-active">SMTP 상태</Label>
-                    <p className="text-xs text-muted-foreground">비활성화 시 발송 및 테스트가 제한됩니다.</p>
+                    <Label htmlFor="smtp-active">{t("smtpForm.statusLabel")}</Label>
+                    <p className="text-xs text-muted-foreground">{t("smtpForm.statusDescription")}</p>
                   </div>
                   <Switch
                     id="smtp-active"
@@ -512,24 +546,24 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="smtp-username">계정 아이디</Label>
+                    <Label htmlFor="smtp-username">{t("smtp.accountId")}</Label>
                     <Input
                       id="smtp-username"
                       value={formState.username}
                       onChange={(event) => handleChange("username", event.target.value)}
-                      placeholder="선택 입력"
+                      placeholder={t("smtpForm.optionalPlaceholder")}
                       disabled={disabled}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="smtp-password">비밀번호</Label>
+                    <Label htmlFor="smtp-password">{t("smtp.password")}</Label>
                     <Input
                       id="smtp-password"
                       type="password"
                       value={passwordInput}
                       onChange={(event) => setPasswordInput(event.target.value)}
-                      placeholder="선택 입력"
+                      placeholder={t("smtpForm.optionalPlaceholder")}
                       disabled={disabled}
                     />
                   </div>
@@ -538,16 +572,16 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
 
               <section className="space-y-4 rounded-lg border bg-background p-4">
                 <div className="space-y-1">
-                  <h3 className="text-sm font-semibold">허용 발신 도메인</h3>
+                  <h3 className="text-sm font-semibold">{t("smtp.allowedDomains")}</h3>
                   <p className="text-xs text-muted-foreground">
-                    프로젝트 발신 이메일과 SMTP 테스트 발신 이메일이 사용할 수 있는 도메인을 관리합니다. 최대 {MAX_ALLOWED_SENDER_DOMAINS}개까지 등록할 수 있습니다.
+                    {t("smtpForm.allowedDomainsDescription", { count: MAX_ALLOWED_SENDER_DOMAINS })}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    등록한 도메인은 하위 도메인까지 허용합니다. 예: example.com 등록 시 user@sub.example.com도 사용할 수 있습니다.
+                    {t("smtpForm.allowedDomainsSubdescription")}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sender-domain-register">도메인 입력</Label>
+                  <Label htmlFor="sender-domain-register">{t("smtpForm.domainInputLabel")}</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <Input
                       className="w-full"
@@ -566,7 +600,7 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
                           handleAddSenderDomain();
                         }
                       }}
-                      placeholder="example.com 입력 후 Enter"
+                      placeholder={t("smtpForm.domainInputPlaceholder")}
                       disabled={disabled || isSenderDomainLimitReached}
                     />
                     <Button
@@ -576,12 +610,12 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
                       disabled={disabled || isSenderDomainLimitReached}
                     >
                       <Plus className="mr-2 h-4 w-4" />
-                      추가
+                      {t("common.add")}
                     </Button>
                   </div>
                   {isSenderDomainLimitReached && !senderDomainError && (
                     <p className="text-sm text-muted-foreground">
-                      최대 {MAX_ALLOWED_SENDER_DOMAINS}개까지 등록되었습니다. 새 도메인을 추가하려면 기존 도메인을 삭제하세요.
+                      {t("smtpForm.domainLimitReachedHint", { count: MAX_ALLOWED_SENDER_DOMAINS })}
                     </p>
                   )}
                   {senderDomainError && (
@@ -591,7 +625,7 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <Label>등록된 도메인</Label>
+                    <Label>{t("smtpForm.registeredDomainsLabel")}</Label>
                     <span className="text-xs text-muted-foreground">
                       {normalizedAllowedSenderDomains.length}/{MAX_ALLOWED_SENDER_DOMAINS}
                     </span>
@@ -605,7 +639,7 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
                             type="button"
                             onClick={() => handleRemoveSenderDomain(domain)}
                             className="rounded-full p-0.5 text-muted-foreground transition hover:text-destructive"
-                            aria-label={`${domain} 도메인 제거`}
+                            aria-label={t("smtpForm.removeDomainAriaLabel", { domain })}
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -614,7 +648,7 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
                     </div>
                   ) : (
                     <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-                      아직 등록된 허용 발신 도메인이 없습니다. 비워 두면 발신 도메인을 제한하지 않습니다.
+                      {t("smtpForm.noDomains")}
                     </div>
                   )}
                 </div>
@@ -623,14 +657,14 @@ export const SmtpConfigForm = forwardRef<SmtpConfigFormHandle, SmtpConfigFormPro
 
             {submitError && (
               <Alert variant="destructive">
-                <AlertTitle>저장 실패</AlertTitle>
+                <AlertTitle>{t("smtpForm.submitFailedTitle")}</AlertTitle>
                 <AlertDescription>{submitError.slice(0, 400)}</AlertDescription>
               </Alert>
             )}
 
             <div className="flex justify-end">
               <Button type="submit" disabled={!canSubmit}>
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "저장"}
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("common.save")}
               </Button>
             </div>
           </form>

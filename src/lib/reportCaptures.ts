@@ -1,4 +1,5 @@
 import type { Project } from "@shared/schema";
+import type { TranslationKey } from "@/lib/i18n";
 
 type ReportCaptureProjectKey = keyof Pick<
   Project,
@@ -16,32 +17,32 @@ export type ReportCaptureKey =
 
 export const reportCaptureFields: Array<{
   key: ReportCaptureKey;
-  label: string;
-  description: string;
+  labelKey: TranslationKey;
+  descriptionKey: TranslationKey;
   projectField: ReportCaptureProjectKey;
 }> = [
   {
     key: "capture_inbox",
-    label: "메일 수신함",
-    description: "메일이 어떻게 도착했는지 확인하는 화면",
+    labelKey: "reports.capture.inbox.label",
+    descriptionKey: "reports.capture.inbox.description",
     projectField: "reportCaptureInboxFileKey",
   },
   {
     key: "capture_email_body",
-    label: "메일 본문",
-    description: "메일 본문 화면",
+    labelKey: "reports.capture.emailBody.label",
+    descriptionKey: "reports.capture.emailBody.description",
     projectField: "reportCaptureEmailFileKey",
   },
   {
     key: "capture_malicious_page",
-    label: "악성 페이지",
-    description: "메일 본문에서 링크 클릭 후 화면",
+    labelKey: "reports.capture.maliciousPage.label",
+    descriptionKey: "reports.capture.maliciousPage.description",
     projectField: "reportCaptureMaliciousFileKey",
   },
   {
     key: "capture_training_page",
-    label: "훈련 안내 페이지",
-    description: "악성 페이지 폼 전송 후 안내 화면",
+    labelKey: "reports.capture.trainingPage.label",
+    descriptionKey: "reports.capture.trainingPage.description",
     projectField: "reportCaptureTrainingFileKey",
   },
 ];

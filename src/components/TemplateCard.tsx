@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Mail, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/I18nProvider";
 
 interface TemplateCardProps {
   id: string;
@@ -10,6 +11,7 @@ interface TemplateCardProps {
 }
 
 export function TemplateCard({ id, title, lastModified, subject }: TemplateCardProps) {
+  const { t } = useI18n();
   const handleEdit = () => {
     console.log(`Edit template ${id} triggered`);
   };
@@ -38,7 +40,7 @@ export function TemplateCard({ id, title, lastModified, subject }: TemplateCardP
             onClick={handleEdit}
             data-testid={`button-edit-template-${id}`}
           >
-            편집
+            {t("common.edit")}
           </Button>
         </div>
       </div>
