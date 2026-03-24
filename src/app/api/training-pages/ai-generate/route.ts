@@ -6,6 +6,7 @@ import {
   trainingPageAiRequestSchema,
 } from "@shared/trainingPageAi";
 import {
+  TEMPLATE_AI_REFERENCE_ATTACHMENT_MAX_HTML_CHARS,
   resolveTemplateAiReferenceAttachmentKind,
   validateTemplateAiReferenceAttachmentMeta,
 } from "@shared/templateAi";
@@ -78,7 +79,7 @@ const parseReferenceAttachment = async (value: FormDataEntryValue | null) => {
       name: value.name,
       mimeType: value.type || "text/html",
       kind,
-      textContent: textContent.slice(0, 20_000),
+      textContent: textContent.slice(0, TEMPLATE_AI_REFERENCE_ATTACHMENT_MAX_HTML_CHARS),
     } as const;
   }
 

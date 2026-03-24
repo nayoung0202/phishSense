@@ -161,6 +161,55 @@ describe("POST /api/training-pages/ai-generate", () => {
     );
   });
 
+  it("HTML 첨부 원문이 길어도 잘리지 않고 서비스로 전달한다", async () => {
+    generateTrainingPageAiCandidatesMock.mockResolvedValue({
+      candidates: [
+        {
+          id: "candidate-1",
+          name: "첨부 참고 후보",
+          description: "첨부 참고 설명",
+          content: "<section><p>첨부를 참고한 훈련안내페이지입니다.</p></section>",
+          summary: "첨부 참고 요약",
+        },
+      ],
+      usage: {
+        promptTokenCount: 100,
+        candidatesTokenCount: 200,
+        totalTokenCount: 300,
+        estimatedCredits: 1,
+        model: "gemini-2.5-flash-lite",
+      },
+    });
+
+    const longHtml = `<html><body>${"훈련 안내 ".repeat(5000)}</body></html>`;
+    const response = await POST(
+      new Request("http://localhost/api/training-pages/ai-generate", {
+        method: "POST",
+        body: JSON.stringify({
+          tone: "formal",
+          prompt: "",
+          generateCount: 1,
+          preservedCandidates: [],
+          referenceAttachment: {
+            name: "training-reference.html",
+            mimeType: "text/html",
+            kind: "html",
+            textContent: longHtml,
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateTrainingPageAiCandidatesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        referenceAttachment: expect.objectContaining({
+          textContent: longHtml,
+        }),
+      }),
+    );
+  });
+
   it("문체 값이 없으면 400을 반환한다", async () => {
     const response = await POST(
       new Request("http://localhost/api/training-pages/ai-generate", {

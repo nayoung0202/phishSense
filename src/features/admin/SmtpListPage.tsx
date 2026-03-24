@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,10 @@ import type { SmtpConfigSummary } from "@/types/smtp";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/components/I18nProvider";
 import { getIntlLocale } from "@/lib/i18n";
+import { paginateItems } from "@/lib/pagination";
+import { ListPaginationControls } from "@/components/ListPaginationControls";
+
+const SMTP_PAGE_SIZE = 10;
 
 export default function SmtpListPage() {
   const { locale, t } = useI18n();
@@ -19,6 +23,7 @@ export default function SmtpListPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [page, setPage] = useState(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const {
     data,
@@ -38,6 +43,11 @@ export default function SmtpListPage() {
   const sortedItems = useMemo(() => {
     return [...items].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
   }, [items]);
+  const paginatedItems = useMemo(
+    () => paginateItems(sortedItems, page, SMTP_PAGE_SIZE),
+    [page, sortedItems],
+  );
+  const visibleItems = paginatedItems.items;
 
   const deleteMutation = useMutation({
     mutationFn: async (smtpAccountId: string) => {
@@ -67,6 +77,12 @@ export default function SmtpListPage() {
     if (!confirm(t("common.confirmDelete"))) return;
     deleteMutation.mutate(smtpAccountId);
   };
+
+  useEffect(() => {
+    if (paginatedItems.page !== page) {
+      setPage(paginatedItems.page);
+    }
+  }, [page, paginatedItems.page]);
 
   return (
     <div className="space-y-6 px-4 py-6 lg:px-8">
@@ -105,7 +121,7 @@ export default function SmtpListPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedItems.map((item) => (
+                  {visibleItems.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.name || "-"}</TableCell>
                       <TableCell>{item.username || "-"}</TableCell>
@@ -160,6 +176,13 @@ export default function SmtpListPage() {
               </Table>
             </div>
           )}
+          <ListPaginationControls
+            page={paginatedItems.page}
+            totalPages={paginatedItems.totalPages}
+            onPageChange={setPage}
+            previousLabel={locale === "en" ? "Previous" : locale === "ja" ? "前へ" : "이전"}
+            nextLabel={locale === "en" ? "Next" : locale === "ja" ? "次へ" : "다음"}
+          />
         </CardContent>
       </Card>
     </div>

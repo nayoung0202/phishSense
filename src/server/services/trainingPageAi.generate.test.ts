@@ -368,9 +368,11 @@ describe("generateTrainingPageAiCandidates", () => {
       },
     });
 
+    expect(result.candidates[0]?.content).toContain('data-training-page-reference-root="true"');
     expect(result.candidates[0]?.content).toContain(
       "data:image/png;base64,dHJhaW5pbmctaW1hZ2U=",
     );
+    expect(result.candidates[0]?.content).not.toContain("학습 안내를 확인해 주세요.");
   });
 
   it("OPENAI_API_KEY가 있으면 OpenAI chat completions 엔드포인트를 사용한다", async () => {

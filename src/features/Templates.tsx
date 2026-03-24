@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -26,6 +26,8 @@ import { buildMailHtml } from "@shared/templateMail";
 import { cn } from "@/lib/utils";
 import { TemplateAiGenerateDialog } from "@/components/TemplateAiGenerateDialog";
 import { TemplatePreviewFrame } from "@/components/template-preview-frame";
+import { paginateItems } from "@/lib/pagination";
+import { ListPaginationControls } from "@/components/ListPaginationControls";
 import {
   countTokenOccurrences,
   MAIL_LANDING_TOKENS,
@@ -33,11 +35,14 @@ import {
   normalizeTrainingUrlPlaceholders,
 } from "@shared/templateTokens";
 
+const TEMPLATES_PAGE_SIZE = 9;
+
 export default function Templates() {
   const { locale, t } = useI18n();
   const dateFnsLocale = getDateFnsLocale(locale);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isAiGenerateOpen, setIsAiGenerateOpen] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
@@ -69,16 +74,25 @@ export default function Templates() {
     },
   });
 
-  const filteredTemplates = templates.filter((template) => {
-    const keyword = searchTerm.toLowerCase();
-    if (!keyword) return true;
-    return (
-      template.name.toLowerCase().includes(keyword) ||
-      template.subject.toLowerCase().includes(keyword) ||
-      template.body.toLowerCase().includes(keyword) ||
-      template.maliciousPageContent.toLowerCase().includes(keyword)
-    );
-  });
+  const filteredTemplates = useMemo(
+    () =>
+      templates.filter((template) => {
+        const keyword = searchTerm.toLowerCase();
+        if (!keyword) return true;
+        return (
+          template.name.toLowerCase().includes(keyword) ||
+          template.subject.toLowerCase().includes(keyword) ||
+          template.body.toLowerCase().includes(keyword) ||
+          template.maliciousPageContent.toLowerCase().includes(keyword)
+        );
+      }),
+    [searchTerm, templates],
+  );
+  const paginatedTemplates = useMemo(
+    () => paginateItems(filteredTemplates, page, TEMPLATES_PAGE_SIZE),
+    [filteredTemplates, page],
+  );
+  const visibleTemplates = paginatedTemplates.items;
 
   const handleDelete = (id: string) => {
     if (confirm(t("common.confirmDelete"))) {
@@ -130,6 +144,17 @@ export default function Templates() {
   );
   const previewMutedClass =
     previewTheme === "dark" ? "text-slate-300" : "text-slate-600";
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (paginatedTemplates.page !== page) {
+      setPage(paginatedTemplates.page);
+    }
+  }, [page, paginatedTemplates.page]);
+
   return (
     <>
       <Dialog
@@ -264,7 +289,7 @@ export default function Templates() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates.map((template) => {
+            {visibleTemplates.map((template) => {
               const landingTokenCount = countTokenOccurrences(
                 template.body ?? "",
                 MAIL_LANDING_TOKENS,
@@ -378,6 +403,13 @@ export default function Templates() {
             })}
           </div>
         )}
+        <ListPaginationControls
+          page={paginatedTemplates.page}
+          totalPages={paginatedTemplates.totalPages}
+          onPageChange={setPage}
+          previousLabel={locale === "en" ? "Previous" : locale === "ja" ? "前へ" : "이전"}
+          nextLabel={locale === "en" ? "Next" : locale === "ja" ? "次へ" : "다음"}
+        />
       </Card>
     </div>
     </>

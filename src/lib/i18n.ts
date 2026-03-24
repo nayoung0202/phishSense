@@ -48,8 +48,10 @@ export const resolveLocale = (value: string | null | undefined): AppLocale => {
 };
 
 export const getMessages = (locale: AppLocale) => messagesByLocale[locale];
-export const getIntlLocale = (locale: AppLocale) => intlLocaleByAppLocale[locale];
-export const getDateFnsLocale = (locale: AppLocale) => dateFnsLocaleByAppLocale[locale];
+export const getIntlLocale = (locale: AppLocale) =>
+  intlLocaleByAppLocale[locale];
+export const getDateFnsLocale = (locale: AppLocale) =>
+  dateFnsLocaleByAppLocale[locale];
 
 export const formatMessage = (
   messages: TranslationMessages,

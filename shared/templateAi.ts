@@ -3,6 +3,7 @@ import { z } from "zod";
 export const TEMPLATE_AI_DRAFT_SESSION_KEY = "phishsense.template.ai-draft";
 export const DEFAULT_TEMPLATE_AI_MODEL = "gemini-2.5-flash-lite";
 export const TEMPLATE_AI_REFERENCE_ATTACHMENT_MAX_BYTES = 2 * 1024 * 1024;
+export const TEMPLATE_AI_REFERENCE_ATTACHMENT_MAX_HTML_CHARS = 2_000_000;
 export const TEMPLATE_AI_REFERENCE_ATTACHMENT_ACCEPT =
   ".html,.htm,image/png,image/jpeg,image/webp,image/gif";
 
@@ -123,7 +124,7 @@ export const templateAiReferenceAttachmentSchema = z
     name: z.string().trim().min(1).max(255),
     mimeType: z.string().trim().min(1).max(100),
     kind: z.enum(["html", "image"]),
-    textContent: z.string().max(20_000).optional(),
+    textContent: z.string().max(TEMPLATE_AI_REFERENCE_ATTACHMENT_MAX_HTML_CHARS).optional(),
     base64Data: z.string().max(4_000_000).optional(),
   })
   .superRefine((value, ctx) => {

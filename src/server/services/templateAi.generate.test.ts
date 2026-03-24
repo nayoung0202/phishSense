@@ -71,6 +71,34 @@ const buildGeminiSuccessResponse = (
     },
   );
 
+const buildGeminiMalformedJsonResponse = () =>
+  new Response(
+    JSON.stringify({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: '{"candidates":[{"subject":"후보 1","body":"<div>열림","maliciousPageContent":"<form action=\\"{{TRAINING_URL}}\\"><button type=\\"submit\\">제출</button></form>","summary":"요약 1"}]',
+              },
+            ],
+          },
+        },
+      ],
+      usageMetadata: {
+        promptTokenCount: 100,
+        candidatesTokenCount: 200,
+        totalTokenCount: 300,
+      },
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
 describe("generateTemplateAiCandidates", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -87,6 +115,9 @@ describe("generateTemplateAiCandidates", () => {
   it("Gemini 503 오류를 재시도 가능한 서비스 오류로 변환한다", async () => {
     const fetchMock = vi
       .fn()
+      .mockResolvedValueOnce(buildGeminiUnavailableResponse())
+      .mockResolvedValueOnce(buildGeminiUnavailableResponse())
+      .mockResolvedValueOnce(buildGeminiUnavailableResponse())
       .mockResolvedValueOnce(buildGeminiUnavailableResponse())
       .mockResolvedValueOnce(buildGeminiUnavailableResponse())
       .mockResolvedValueOnce(buildGeminiUnavailableResponse());
@@ -106,7 +137,7 @@ describe("generateTemplateAiCandidates", () => {
       retryable: true,
       message: "AI 템플릿 생성 요청이 일시적으로 많습니다. 잠시 후 다시 시도하세요.",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
   });
 
   it("재시도 중 정상 응답이 오면 후보를 반환한다", async () => {
@@ -136,6 +167,36 @@ describe("generateTemplateAiCandidates", () => {
       }),
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("Gemini가 잘린 JSON을 반환해도 fallback 모델에서 복구한다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(buildGeminiMalformedJsonResponse())
+      .mockResolvedValueOnce(buildGeminiMalformedJsonResponse())
+      .mockResolvedValueOnce(buildGeminiMalformedJsonResponse())
+      .mockResolvedValueOnce(buildGeminiSuccessResponse(1));
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = generateTemplateAiCandidates({
+      ...baseRequest,
+      generateCount: 1,
+    });
+
+    await vi.runAllTimersAsync();
+
+    await expect(resultPromise).resolves.toMatchObject({
+      candidates: expect.arrayContaining([
+        expect.objectContaining({
+          subject: "후보 1",
+        }),
+      ]),
+      usage: expect.objectContaining({
+        model: "gemini-2.5-flash",
+      }),
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("폼 action이 이미 있으면 별도 훈련 안내 링크를 자동 추가하지 않는다", async () => {
@@ -320,18 +381,76 @@ describe("generateTemplateAiCandidates", () => {
     });
   });
 
-  it("요청한 수보다 적은 후보가 와도 유효 후보가 있으면 반환한다", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(buildGeminiSuccessResponse(1));
+  it("유효 후보가 부족하면 추가 생성으로 남은 수를 보강한다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(buildGeminiSuccessResponse(1))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [
+                    {
+                      text: JSON.stringify({
+                        candidates: [
+                          {
+                            subject: "후보 2",
+                            body: '<div><a href="{{LANDING_URL}}">확인 2</a></div>',
+                            maliciousPageContent:
+                              '<form action="{{TRAINING_URL}}"><input name="email" /><button type="submit">제출</button></form>',
+                            summary: "요약 2",
+                          },
+                          {
+                            subject: "후보 3",
+                            body: '<div><a href="{{LANDING_URL}}">확인 3</a></div>',
+                            maliciousPageContent:
+                              '<form action="{{TRAINING_URL}}"><input name="email" /><button type="submit">제출</button></form>',
+                            summary: "요약 3",
+                          },
+                          {
+                            subject: "후보 4",
+                            body: '<div><a href="{{LANDING_URL}}">확인 4</a></div>',
+                            maliciousPageContent:
+                              '<form action="{{TRAINING_URL}}"><input name="email" /><button type="submit">제출</button></form>',
+                            summary: "요약 4",
+                          },
+                        ],
+                      }),
+                    },
+                  ],
+                },
+              },
+            ],
+            usageMetadata: {
+              promptTokenCount: 100,
+              candidatesTokenCount: 200,
+              totalTokenCount: 300,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        ),
+      );
 
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(generateTemplateAiCandidates(baseRequest)).resolves.toMatchObject({
-      candidates: expect.arrayContaining([
+    const result = await generateTemplateAiCandidates(baseRequest);
+
+    expect(result.candidates).toHaveLength(4);
+    expect(result.candidates).toEqual(
+      expect.arrayContaining([
         expect.objectContaining({
           subject: "후보 1",
         }),
       ]),
-    });
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("외부 리소스와 스크립트가 포함된 첨부 재현 결과도 저장 전 안전하게 보정한다", async () => {

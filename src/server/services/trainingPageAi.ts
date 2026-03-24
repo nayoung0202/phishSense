@@ -156,6 +156,16 @@ const ensureEmbeddedReferenceImage = (
   return `${embeddedImage}${html.trim().length > 0 ? "\n" : ""}${html}`;
 };
 
+const buildReferenceImageHtml = (attachment: TemplateAiReferenceAttachment) => `
+<div ${TRAINING_PAGE_REFERENCE_ROOT_ATTR} style="display:flex;justify-content:center;align-items:flex-start;padding:0;margin:0;">
+  <img
+    src="data:${attachment.mimeType};base64,${attachment.base64Data}"
+    alt="${attachment.name}"
+    style="display:block;max-width:100%;height:auto;margin:0;"
+  />
+</div>
+`.trim();
+
 const normalizeInteractiveMatch = (
   tagName: string,
   attrs: string,
@@ -249,6 +259,22 @@ const normalizeTrainingPageReferenceHtml = (html: string) => {
     .join("\n");
 
   return stripUnsafeTemplateHtml(combinedHtml).trim();
+};
+
+const resolveExactReferenceContent = (attachment?: TemplateAiReferenceAttachment) => {
+  if (!attachment) {
+    return null;
+  }
+
+  if (attachment.kind === "html") {
+    return normalizeTrainingPageReferenceHtml(attachment.textContent ?? "");
+  }
+
+  if (attachment.kind === "image" && attachment.base64Data) {
+    return buildReferenceImageHtml(attachment);
+  }
+
+  return null;
 };
 
 const trainingPageAiRetryDelaysMs = [700, 1400];
@@ -429,14 +455,12 @@ const sanitizeCandidate = (
   candidate: Omit<TrainingPageAiCandidate, "id">,
   request: TrainingPageAiRequest,
 ) => {
+  const exactReferenceContent = resolveExactReferenceContent(request.referenceAttachment);
   const normalizedCandidate = {
     ...candidate,
     name: candidate.name.trim(),
     description: candidate.description.trim(),
-    content:
-      request.referenceAttachment?.kind === "html"
-        ? normalizeTrainingPageReferenceHtml(candidate.content.trim())
-        : normalizeTrainingPageContent(candidate.content.trim()),
+    content: exactReferenceContent ?? normalizeTrainingPageContent(candidate.content.trim()),
     summary: candidate.summary.trim(),
   };
   const contentIssues = findUnsafeTemplateHtmlIssues(normalizedCandidate.content);
@@ -456,7 +480,9 @@ const applyReferenceImageFallback = (
   request: TrainingPageAiRequest,
 ) => ({
   ...candidate,
-  content: ensureEmbeddedReferenceImage(candidate.content, request.referenceAttachment),
+  content:
+    resolveExactReferenceContent(request.referenceAttachment) ??
+    ensureEmbeddedReferenceImage(candidate.content, request.referenceAttachment),
 });
 
 const applyReferenceHtmlOverride = (
@@ -464,10 +490,7 @@ const applyReferenceHtmlOverride = (
   request: TrainingPageAiRequest,
 ) => ({
   ...candidate,
-  content:
-    request.referenceAttachment?.kind === "html"
-      ? (request.referenceAttachment.textContent ?? "")
-      : candidate.content,
+  content: resolveExactReferenceContent(request.referenceAttachment) ?? candidate.content,
 });
 
 const normalizeRawTrainingPageAiCandidate = (

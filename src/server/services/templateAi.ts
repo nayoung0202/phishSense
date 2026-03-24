@@ -47,6 +47,11 @@ type GenerateTemplateAiResult = {
   };
 };
 
+type ProviderRequestResult = {
+  payload: unknown;
+  model: string;
+};
+
 type GeminiApiErrorPayload = {
   error?: {
     code?: number;
@@ -96,6 +101,7 @@ const responseSchema = {
   required: ["candidates"],
 };
 const OPENAI_TEMPLATE_AI_MODEL = "gpt-4.1-mini";
+const GEMINI_TEMPLATE_AI_FALLBACK_MODELS = ["gemini-2.5-flash"] as const;
 
 const defaultMailBodyReferenceHtml = `
 <div style="max-width:600px;margin:0 auto;padding:32px;border:1px solid #e5e7eb;border-radius:16px;background:#ffffff;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#111827;">
@@ -208,7 +214,18 @@ const createGeminiInvalidResponseError = () =>
     status: 502,
     code: "gemini_invalid_response",
     message: "AI 템플릿 생성 응답이 올바르지 않습니다. 잠시 후 다시 시도하세요.",
+    retryable: true,
   });
+
+const resolveGeminiTemplateAiModels = () => {
+  const configuredModel = process.env.GEMINI_TEMPLATE_AI_MODEL?.trim();
+  const models = [
+    configuredModel && configuredModel.length > 0 ? configuredModel : DEFAULT_TEMPLATE_AI_MODEL,
+    ...GEMINI_TEMPLATE_AI_FALLBACK_MODELS,
+  ];
+
+  return Array.from(new Set(models.filter((model) => model.trim().length > 0)));
+};
 
 const buildInvalidAiPayloadDebugSnippet = (payload: unknown) => {
   try {
@@ -657,57 +674,81 @@ const buildOpenAiUserContent = (request: TemplateAiRequest) => {
   return content;
 };
 
-const requestGeminiCandidates = async (request: TemplateAiRequest, apiKey: string) => {
+const requestGeminiCandidates = async (
+  request: TemplateAiRequest,
+  apiKey: string,
+): Promise<{ payload: unknown; model: string }> => {
   let lastError: TemplateAiServiceError | null = null;
+  const models = resolveGeminiTemplateAiModels();
 
-  for (let attempt = 0; attempt <= templateAiRetryDelaysMs.length; attempt += 1) {
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_TEMPLATE_AI_MODEL}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: buildGeminiRequestParts(request),
-              },
-            ],
-            generationConfig: {
-              temperature: 1,
-              topP: 0.95,
-              responseMimeType: "application/json",
-              responseSchema,
+  for (const model of models) {
+    for (let attempt = 0; attempt <= templateAiRetryDelaysMs.length; attempt += 1) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
             },
-          }),
-        },
-      );
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: "user",
+                  parts: buildGeminiRequestParts(request),
+                },
+              ],
+              generationConfig: {
+                temperature: 1,
+                topP: 0.95,
+                responseMimeType: "application/json",
+                responseSchema,
+              },
+            }),
+          },
+        );
 
-      if (!response.ok) {
-        lastError = createGeminiApiError(response.status, await response.text());
-      } else {
-        try {
-          return await response.json();
-        } catch {
-          throw createGeminiInvalidResponseError();
+        if (!response.ok) {
+          lastError = createGeminiApiError(response.status, await response.text());
+        } else {
+          const payload = await response.json();
+          const text = extractJsonText(payload);
+
+          JSON.parse(text);
+
+          return {
+            payload,
+            model,
+          };
+        }
+      } catch (error) {
+        if (error instanceof TemplateAiServiceError) {
+          lastError = error;
+        } else if (error instanceof Error && /invalid_ai_response|empty_ai_response|JSON/i.test(error.message)) {
+          lastError = createGeminiInvalidResponseError();
+        } else {
+          lastError = createGeminiNetworkError();
         }
       }
-    } catch (error) {
-      if (error instanceof TemplateAiServiceError) {
-        lastError = error;
-      } else {
-        lastError = createGeminiNetworkError();
+
+      if (!lastError.retryable) {
+        throw lastError;
+      }
+
+      if (attempt < templateAiRetryDelaysMs.length) {
+        try {
+          await sleep(templateAiRetryDelaysMs[attempt]);
+        } catch {
+          break;
+        }
       }
     }
 
-    if (!lastError.retryable || attempt === templateAiRetryDelaysMs.length) {
-      throw lastError;
-    }
-
-    await sleep(templateAiRetryDelaysMs[attempt]);
+    console.warn("[template-ai] gemini model retry exhausted", {
+      model,
+      code: lastError?.code ?? null,
+      status: lastError?.status ?? null,
+    });
   }
 
   throw lastError ?? createGeminiNetworkError();
@@ -862,6 +903,74 @@ const estimateCreditsFromUsage = (usage: GeminiUsageMetadata) => {
   };
 };
 
+const extractUsageFromPayload = (
+  payload: unknown,
+  openAiApiKeyPresent: boolean,
+): GeminiUsageMetadata => {
+  if (openAiApiKeyPresent) {
+    return {
+      promptTokenCount: (payload as OpenAiChatCompletionPayload).usage?.prompt_tokens ?? 0,
+      candidatesTokenCount: (payload as OpenAiChatCompletionPayload).usage?.completion_tokens ?? 0,
+      totalTokenCount: (payload as OpenAiChatCompletionPayload).usage?.total_tokens ?? 0,
+    };
+  }
+
+  return (payload as { usageMetadata?: GeminiUsageMetadata }).usageMetadata ?? {};
+};
+
+const mergeUsageMetadata = (
+  accumulated: GeminiUsageMetadata,
+  current: GeminiUsageMetadata,
+): GeminiUsageMetadata => ({
+  promptTokenCount: (accumulated.promptTokenCount ?? 0) + (current.promptTokenCount ?? 0),
+  candidatesTokenCount:
+    (accumulated.candidatesTokenCount ?? 0) + (current.candidatesTokenCount ?? 0),
+  totalTokenCount: (accumulated.totalTokenCount ?? 0) + (current.totalTokenCount ?? 0),
+});
+
+const parseTemplateCandidatesFromPayload = (
+  payload: unknown,
+  request: TemplateAiRequest,
+  openAiApiKeyPresent: boolean,
+) => {
+  const text = openAiApiKeyPresent ? extractOpenAiJsonText(payload) : extractJsonText(payload);
+  const parsed = JSON.parse(text) as {
+    candidates?: Array<Partial<Omit<TemplateAiCandidate, "id">>>;
+  };
+  const rawCandidates = parsed.candidates ?? [];
+
+  return rawCandidates.slice(0, request.generateCount).flatMap((candidate) => {
+    try {
+      const candidateWithHtmlOverride = applyReferenceHtmlOverride(
+        normalizeRawTemplateAiCandidate(candidate),
+        request,
+      );
+      const candidateWithTextFallbacks = applyTemplateTextFallbacks(
+        candidateWithHtmlOverride,
+        request,
+      );
+      return [applyReferenceImageFallback(sanitizeCandidate(candidateWithTextFallbacks), request)];
+    } catch {
+      return [];
+    }
+  });
+};
+
+const requestTemplateAiPayload = async (
+  request: TemplateAiRequest,
+  openAiApiKey: string | undefined,
+  geminiApiKey: string | undefined,
+): Promise<ProviderRequestResult> => {
+  if (openAiApiKey) {
+    return {
+      payload: await requestOpenAiCandidates(request, openAiApiKey),
+      model: process.env.OPENAI_TEMPLATE_AI_MODEL?.trim() || OPENAI_TEMPLATE_AI_MODEL,
+    };
+  }
+
+  return requestGeminiCandidates(request, geminiApiKey as string);
+};
+
 export async function generateTemplateAiCandidates(
   request: TemplateAiRequest,
 ): Promise<GenerateTemplateAiResult> {
@@ -872,36 +981,67 @@ export async function generateTemplateAiCandidates(
     throw createProviderApiKeyMissingError();
   }
 
-  const payload = openAiApiKey
-    ? await requestOpenAiCandidates(request, openAiApiKey)
-    : await requestGeminiCandidates(request, geminiApiKey as string);
-  const responseModel = openAiApiKey
+  let candidates: TemplateAiCandidate[] = [];
+  let usageMetadata: GeminiUsageMetadata = {};
+  let responseModel = openAiApiKey
     ? process.env.OPENAI_TEMPLATE_AI_MODEL?.trim() || OPENAI_TEMPLATE_AI_MODEL
     : DEFAULT_TEMPLATE_AI_MODEL;
+  const maxSupplementalRounds = 1;
 
   try {
-    const text = openAiApiKey ? extractOpenAiJsonText(payload) : extractJsonText(payload);
-    const parsed = JSON.parse(text) as {
-      candidates?: Array<Partial<Omit<TemplateAiCandidate, "id">>>;
-    };
-    const rawCandidates = parsed.candidates ?? [];
-    let candidates = rawCandidates.slice(0, request.generateCount).flatMap((candidate) => {
-      try {
-        const candidateWithHtmlOverride = applyReferenceHtmlOverride(
-          normalizeRawTemplateAiCandidate(candidate),
-          request,
-        );
-        const candidateWithTextFallbacks = applyTemplateTextFallbacks(
-          candidateWithHtmlOverride,
-          request,
-        );
-        return [
-          applyReferenceImageFallback(sanitizeCandidate(candidateWithTextFallbacks), request),
-        ];
-      } catch {
-        return [];
+    for (let round = 0; round <= maxSupplementalRounds; round += 1) {
+      const remainingCount = request.generateCount - candidates.length;
+      if (remainingCount <= 0) {
+        break;
       }
-    });
+
+      const roundRequest: TemplateAiRequest =
+        round === 0
+          ? request
+          : {
+              ...request,
+              generateCount: remainingCount,
+              preservedCandidates: [
+                ...request.preservedCandidates,
+                ...candidates.map((candidate) => ({
+                  id: candidate.id,
+                  subject: candidate.subject,
+                })),
+              ].slice(0, 3),
+            };
+
+      const { payload, model } = await requestTemplateAiPayload(
+        roundRequest,
+        openAiApiKey,
+        geminiApiKey,
+      );
+      responseModel = model;
+      usageMetadata = mergeUsageMetadata(
+        usageMetadata,
+        extractUsageFromPayload(payload, Boolean(openAiApiKey)),
+      );
+      const nextCandidates = parseTemplateCandidatesFromPayload(
+        payload,
+        roundRequest,
+        Boolean(openAiApiKey),
+      );
+
+      for (const candidate of nextCandidates) {
+        if (
+          candidates.some(
+            (existing) =>
+              existing.subject === candidate.subject &&
+              existing.summary === candidate.summary,
+          )
+        ) {
+          continue;
+        }
+        candidates.push(candidate);
+        if (candidates.length >= request.generateCount) {
+          break;
+        }
+      }
+    }
 
     if (candidates.length === 0) {
       try {
@@ -916,16 +1056,7 @@ export async function generateTemplateAiCandidates(
       }
     }
 
-    const usage = estimateCreditsFromUsage(
-      openAiApiKey
-        ? {
-            promptTokenCount: (payload as OpenAiChatCompletionPayload).usage?.prompt_tokens ?? 0,
-            candidatesTokenCount:
-              (payload as OpenAiChatCompletionPayload).usage?.completion_tokens ?? 0,
-            totalTokenCount: (payload as OpenAiChatCompletionPayload).usage?.total_tokens ?? 0,
-          }
-        : (payload as { usageMetadata?: GeminiUsageMetadata }).usageMetadata ?? {},
-    );
+    const usage = estimateCreditsFromUsage(usageMetadata);
 
     return {
       candidates,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type ChangeEvent, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -24,11 +24,15 @@ import { SafeText } from "@/components/security/SafeText";
 import { importTrainingTargetsExcel, type ImportTrainingTargetsResponse } from "@/lib/api";
 import { useI18n } from "@/components/I18nProvider";
 import { getIntlLocale } from "@/lib/i18n";
+import { paginateItems } from "@/lib/pagination";
+import { ListPaginationControls } from "@/components/ListPaginationControls";
 import {
   resolveDisplayedTargetSeatLimit,
   type PlatformSeatContext,
   TargetSeatUsageSummary,
 } from "@/components/targets/TargetSeatUsageSummary";
+
+const TARGETS_PAGE_SIZE = 10;
 
 const parseDepartments = (department: Target["department"]): string[] => {
   if (!department) return [];
@@ -95,6 +99,7 @@ export default function Targets() {
   const intlLocale = getIntlLocale(locale);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] =
@@ -126,11 +131,16 @@ export default function Targets() {
     () => filterTargetsBySearch(targets, searchTerm),
     [targets, searchTerm],
   );
+  const paginatedTargets = useMemo(
+    () => paginateItems(filteredTargets, page, TARGETS_PAGE_SIZE),
+    [filteredTargets, page],
+  );
+  const visibleTargets = paginatedTargets.items;
   const displayedSeatLimit = resolveDisplayedTargetSeatLimit(platformContextQuery.data);
 
   const isAllSelected =
-    filteredTargets.length > 0 &&
-    filteredTargets.every((target) => selectedTargets.includes(target.id));
+    visibleTargets.length > 0 &&
+    visibleTargets.every((target) => selectedTargets.includes(target.id));
 
   const selectAllState: boolean | "indeterminate" =
     selectedTargets.length === 0
@@ -141,9 +151,12 @@ export default function Targets() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedTargets(filteredTargets.map(t => t.id));
+      setSelectedTargets((prev) =>
+        Array.from(new Set([...prev, ...visibleTargets.map((target) => target.id)])),
+      );
     } else {
-      setSelectedTargets([]);
+      const visibleIds = new Set(visibleTargets.map((target) => target.id));
+      setSelectedTargets((prev) => prev.filter((id) => !visibleIds.has(id)));
     }
   };
 
@@ -230,6 +243,16 @@ export default function Targets() {
       event.target.value = "";
     }
   };
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (paginatedTargets.page !== page) {
+      setPage(paginatedTargets.page);
+    }
+  }, [page, paginatedTargets.page]);
 
   return (
     <div className="p-6 space-y-6">
@@ -409,7 +432,7 @@ export default function Targets() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredTargets.map((target) => {
+                visibleTargets.map((target) => {
                   const departments = parseDepartments(target.department);
                   return (
                     <TableRow key={target.id} data-testid={`row-target-${target.id}`}>
@@ -483,6 +506,13 @@ export default function Targets() {
             </TableBody>
           </Table>
         </div>
+        <ListPaginationControls
+          page={paginatedTargets.page}
+          totalPages={paginatedTargets.totalPages}
+          onPageChange={setPage}
+          previousLabel={locale === "en" ? "Previous" : locale === "ja" ? "前へ" : "이전"}
+          nextLabel={locale === "en" ? "Next" : locale === "ja" ? "次へ" : "다음"}
+        />
       </Card>
     </div>
   );

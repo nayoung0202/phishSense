@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -23,12 +23,17 @@ import { useI18n } from "@/components/I18nProvider";
 import { getDateFnsLocale } from "@/lib/i18n";
 import { TrainingPageAiGenerateDialog } from "@/components/TrainingPageAiGenerateDialog";
 import { TemplatePreviewFrame } from "@/components/template-preview-frame";
+import { paginateItems } from "@/lib/pagination";
+import { ListPaginationControls } from "@/components/ListPaginationControls";
+
+const TRAINING_PAGES_PAGE_SIZE = 9;
 
 export default function TrainingPages() {
   const { t, locale } = useI18n();
   const dateFnsLocale = getDateFnsLocale(locale);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
   const [previewTheme, setPreviewTheme] = useState<"light" | "dark">("dark");
   const [isAiGenerateOpen, setIsAiGenerateOpen] = useState(false);
 
@@ -45,10 +50,19 @@ export default function TrainingPages() {
     },
   });
 
-  const filteredPages = pages.filter((page) =>
-    page.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    page.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPages = useMemo(
+    () =>
+      pages.filter((candidate) =>
+        candidate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        candidate.description?.toLowerCase().includes(searchTerm.toLowerCase()),
+      ),
+    [pages, searchTerm],
   );
+  const paginatedPages = useMemo(
+    () => paginateItems(filteredPages, page, TRAINING_PAGES_PAGE_SIZE),
+    [filteredPages, page],
+  );
+  const visiblePages = paginatedPages.items;
 
   const handleDelete = (id: string) => {
     if (confirm(t("common.confirmDelete"))) {
@@ -65,6 +79,16 @@ export default function TrainingPages() {
       ? "site-scrollbar rounded-md border border-slate-800 bg-slate-950 p-2 text-slate-50"
       : "site-scrollbar rounded-md border border-slate-200 bg-slate-50 p-2 text-slate-900";
   const previewScrollableSurfaceClass = `${previewSurfaceClass} max-h-[60vh] overflow-y-auto`;
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (paginatedPages.page !== page) {
+      setPage(paginatedPages.page);
+    }
+  }, [page, paginatedPages.page]);
 
   return (
     <>
@@ -116,8 +140,8 @@ export default function TrainingPages() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredPages.map((page) => (
-              <Card key={page.id} className="p-6 hover-elevate" data-testid={`card-page-${page.id}`}>
+            {visiblePages.map((candidate) => (
+              <Card key={candidate.id} className="p-6 hover-elevate" data-testid={`card-page-${candidate.id}`}>
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
                     <div className="p-2 rounded-md bg-primary/10">
@@ -125,22 +149,22 @@ export default function TrainingPages() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="mb-1 font-semibold truncate">
-                        <SafeText value={page.name} fallback="-" />
+                        <SafeText value={candidate.name} fallback="-" />
                       </h3>
                       <p className="text-sm text-muted-foreground line-clamp-2">
-                        <SafeText value={page.description} fallback={t("common.noDescription")} />
+                        <SafeText value={candidate.description} fallback={t("common.noDescription")} />
                       </p>
                     </div>
                   </div>
 
                   <div className="pt-4 border-t border-border">
                     <p className="text-xs text-muted-foreground mb-3">
-                      {t("common.updatedAt")} {formatDate(page.updatedAt!)}
+                      {t("common.updatedAt")} {formatDate(candidate.updatedAt!)}
                     </p>
                     <div className="flex items-center gap-2">
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" data-testid={`button-preview-${page.id}`}>
+                          <Button variant="outline" size="sm" data-testid={`button-preview-${candidate.id}`}>
                             <Eye className="w-4 h-4 mr-2" />
                             {t("common.preview")}
                           </Button>
@@ -149,7 +173,7 @@ export default function TrainingPages() {
                           <DialogHeader>
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <DialogTitle>
-                                <SafeText value={page.name} fallback="-" />
+                                <SafeText value={candidate.name} fallback="-" />
                               </DialogTitle>
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <span className={previewTheme === "light" ? "text-foreground font-semibold" : ""}>{t("common.light")}</span>
@@ -171,23 +195,23 @@ export default function TrainingPages() {
                           </DialogHeader>
                           <div className={previewScrollableSurfaceClass}>
                             <TemplatePreviewFrame
-                              html={page.content}
+                              html={candidate.content}
                               theme={previewTheme}
                               className="rounded-md shadow-sm"
                             />
                           </div>
                         </DialogContent>
                       </Dialog>
-                      <Link href={`/training-pages/${page.id}/edit`}>
-                        <Button variant="outline" size="sm" data-testid={`button-edit-${page.id}`}>
+                      <Link href={`/training-pages/${candidate.id}/edit`}>
+                        <Button variant="outline" size="sm" data-testid={`button-edit-${candidate.id}`}>
                           <Edit className="w-4 h-4" />
                         </Button>
                       </Link>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDelete(page.id)}
-                        data-testid={`button-delete-${page.id}`}
+                        onClick={() => handleDelete(candidate.id)}
+                        data-testid={`button-delete-${candidate.id}`}
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
@@ -198,6 +222,13 @@ export default function TrainingPages() {
             ))}
           </div>
         )}
+        <ListPaginationControls
+          page={paginatedPages.page}
+          totalPages={paginatedPages.totalPages}
+          onPageChange={setPage}
+          previousLabel={locale === "en" ? "Previous" : locale === "ja" ? "前へ" : "이전"}
+          nextLabel={locale === "en" ? "Next" : locale === "ja" ? "次へ" : "다음"}
+        />
       </Card>
     </div>
     </>

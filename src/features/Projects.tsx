@@ -73,6 +73,8 @@ import { getProjectDepartmentDisplay } from "@shared/projectDepartment";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ReportGenerateDialog } from "@/components/ReportGenerateDialog";
+import { ListPaginationControls } from "@/components/ListPaginationControls";
+import { paginateItems } from "@/lib/pagination";
 import {
   getProjectActionKinds,
   resolveProjectStopUpdates,
@@ -257,6 +259,7 @@ const quarterStartMonth: Record<Quarter, string> = {
 const QUARTER_ALL_VALUE = "all";
 const MONTH_CARD_HEIGHT = 420;
 const boardColumnOrder: StatusFilter[] = ["예약", "진행중", "완료", "임시"];
+const PROJECTS_PAGE_SIZE = 10;
 
 /* -------------------------------------------------------------------------- */
 /*                               Util Functions                               */
@@ -439,6 +442,7 @@ export default function Projects() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("month");
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedYear, setSelectedYear] = useState<number>(today.getFullYear());
   const [selectedQuarter, setSelectedQuarter] = useState<Quarter>(
@@ -499,6 +503,8 @@ export default function Projects() {
   const statusParam = statusQueryMap[statusFilter];
   const quarterNumber = quarterNumberMap[selectedQuarter];
   const searchQuery = searchMeta.normalized;
+  const previousLabel = "이전";
+  const nextLabel = "다음";
 
   const availableYearsQuery = useQuery({
     queryKey: ["projects", "available-years"] as const,
@@ -627,6 +633,11 @@ export default function Projects() {
   const projects = useMemo(() => {
     return buildVisibleProjectsByMonth(quarterProjects, selectedMonthNumber);
   }, [quarterProjects, selectedMonthNumber]);
+  const paginatedProjects = useMemo(
+    () => paginateItems(projects, page, PROJECTS_PAGE_SIZE),
+    [page, projects],
+  );
+  const visibleProjects = paginatedProjects.items;
 
   const quarterStats = quarterStatsQuery.data ?? [];
   const calendarData = calendarQuery.data ?? EMPTY_CALENDAR;
@@ -668,16 +679,26 @@ export default function Projects() {
   }, [viewMode, selectedProjects.length]);
 
   useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedYear, selectedQuarter, selectedMonth, statusFilter]);
+
+  useEffect(() => {
+    if (paginatedProjects.page !== page) {
+      setPage(paginatedProjects.page);
+    }
+  }, [page, paginatedProjects.page]);
+
+  useEffect(() => {
     setSelectedProjects((prev) => {
       if (prev.length === 0) return prev;
-      const validIds = new Set(projects.map((project) => project.id));
+      const validIds = new Set(visibleProjects.map((project) => project.id));
       const next = prev.filter((id) => validIds.has(id));
       if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
         return prev;
       }
       return next;
     });
-  }, [projects]);
+  }, [visibleProjects]);
 
   const invalidateProjectData = () => {
     queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -879,8 +900,8 @@ export default function Projects() {
   [quarterStats, quarterNumber]);
 
   const selectedProjectDetails = useMemo(() =>
-    projects.filter((project) => selectedProjects.includes(project.id)),
-  [projects, selectedProjects]);
+    visibleProjects.filter((project) => selectedProjects.includes(project.id)),
+  [selectedProjects, visibleProjects]);
 
   const canCompare = canCompareSelectedProjects(selectedProjectDetails.length);
   const canCopy = canCopySelectedProjects(selectedProjectDetails.length);
@@ -915,12 +936,12 @@ export default function Projects() {
     }),
   [selectedProjectDetails]);
 
-  const isAllSelected = projects.length > 0 &&
-    projects.every((project) => selectedProjects.includes(project.id));
+  const isAllSelected = visibleProjects.length > 0 &&
+    visibleProjects.every((project) => selectedProjects.includes(project.id));
 
   const toggleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedProjects(projects.map((project) => project.id));
+      setSelectedProjects(visibleProjects.map((project) => project.id));
       return;
     }
     setSelectedProjects([]);
@@ -1084,7 +1105,7 @@ export default function Projects() {
   };
 
   const openDetailPanel = (projectId: string) => {
-    const project = projects.find((item) => item.id === projectId) ?? null;
+      const project = projects.find((item) => item.id === projectId) ?? null;
     setDetailProject(project);
   };
 
@@ -1180,7 +1201,7 @@ export default function Projects() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {projects.map((project) => {
+            {visibleProjects.map((project) => {
               const start = toDate(project.startDate);
               const end = toDate(project.endDate);
               return (
@@ -1256,7 +1277,7 @@ export default function Projects() {
           </TableBody>
         </Table>
       </div>
-      {projects.length === 0 ? (
+      {visibleProjects.length === 0 ? (
         <CardContent className="border-t px-6 py-10 text-center text-sm text-muted-foreground">
           표시할 프로젝트가 없습니다. 조건을 변경해보세요.
         </CardContent>
@@ -1265,7 +1286,7 @@ export default function Projects() {
   );
 
   const renderBoardView = () => {
-    const columns = buildVisibleBoardColumns(projects);
+    const columns = buildVisibleBoardColumns(visibleProjects);
 
     if (columns.length === 0) {
       return (
@@ -1863,6 +1884,15 @@ export default function Projects() {
 
       {viewMode === "list" ? renderListView() : null}
       {viewMode === "board" ? renderBoardView() : null}
+      {viewMode !== "calendar" ? (
+        <ListPaginationControls
+          page={paginatedProjects.page}
+          totalPages={paginatedProjects.totalPages}
+          onPageChange={setPage}
+          previousLabel={previousLabel}
+          nextLabel={nextLabel}
+        />
+      ) : null}
       {viewMode === "calendar" ? renderCalendarView() : null}
 
       <ReportGenerateDialog

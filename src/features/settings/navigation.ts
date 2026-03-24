@@ -27,7 +27,6 @@ export function getSettingsSidebarItems(options: {
   const canManageBilling = isLoading || role === "OWNER";
   const canViewCredits = isLoading || role === "OWNER" || role === "ADMIN";
   const canManageAiKeys = isLoading || role === "OWNER";
-
   const items: SettingsSidebarItem[] = [
     {
       href: "/settings/general" as Route,
