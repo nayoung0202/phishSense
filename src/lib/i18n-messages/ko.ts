@@ -19,6 +19,7 @@ export const koMessages = {
   "common.previous": "이전",
   "common.next": "다음",
   "common.refresh": "새로고침",
+  "common.back": "뒤로가기",
   "common.backToList": "목록으로",
   "common.actions": "동작",
   "common.company": "회사명",

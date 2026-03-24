@@ -22,6 +22,7 @@ export const enMessages: TranslationMessages = {
   "common.previous": "Previous",
   "common.next": "Next",
   "common.refresh": "Refresh",
+  "common.back": "Back",
   "common.backToList": "Back to list",
   "common.actions": "Actions",
   "common.company": "Company",

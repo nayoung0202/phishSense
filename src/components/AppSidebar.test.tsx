@@ -66,9 +66,11 @@ describe("AppSidebar", () => {
       </SidebarProvider>,
     );
 
+    expect(screen.getByRole("link", { name: "common.back" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: /settings.general/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /settings.members/i })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "프로젝트" })).not.toBeInTheDocument();
+    expect(screen.queryByText("nav.workspace")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /nav.projects/i })).not.toBeInTheDocument();
   });
 
   it("MEMBER는 설정 사이드바에서 권한 없는 항목을 보지 않는다", () => {
@@ -100,7 +102,9 @@ describe("AppSidebar", () => {
       </SidebarProvider>,
     );
 
-    expect(screen.getByRole("link", { name: "프로젝트" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /nav.projects/i })).toBeInTheDocument();
+    expect(screen.queryByText("nav.workspace")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "common.back" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /settings.general/i })).not.toBeInTheDocument();
   });
 });

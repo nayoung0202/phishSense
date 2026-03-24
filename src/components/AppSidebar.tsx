@@ -1,6 +1,15 @@
 "use client";
 
-import { LayoutDashboard, FolderKanban, Users, FileText, BookOpen, Mail, FileBarChart } from "lucide-react";
+import {
+  ChevronLeft,
+  LayoutDashboard,
+  FolderKanban,
+  Users,
+  FileText,
+  BookOpen,
+  Mail,
+  FileBarChart,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Route } from "next";
@@ -10,7 +19,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -106,10 +114,19 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>
-            {isSettingsSidebar ? t("settings.title") : t("nav.workspace")}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
+          <SidebarGroupContent className="space-y-2">
+            {isSettingsSidebar ? (
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/">
+                      <ChevronLeft className="h-5 w-5" />
+                      <span>{t("common.back")}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            ) : null}
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>

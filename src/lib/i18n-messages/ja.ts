@@ -22,6 +22,7 @@ export const jaMessages: TranslationMessages = {
   "common.previous": "前へ",
   "common.next": "次へ",
   "common.refresh": "再読み込み",
+  "common.back": "戻る",
   "common.backToList": "一覧へ",
   "common.actions": "操作",
   "common.company": "会社名",
