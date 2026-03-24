@@ -573,6 +573,13 @@ ${attachment.textContent}
 - ${label} reference attachment: ${attachment.name} (${attachment.mimeType})
 - ${label} generation mode: attachment-locked reproduction
 - A reference image for ${label} will be attached after this prompt.
+- You are the world's best frontend engineer.
+- Recreate the uploaded image as a complete single HTML document as close to 100% pixel-perfect as possible.
+- Treat the uploaded image as the primary source of truth. Do not drift into unrelated scenarios or generic candidate variations.
+- Rebuild the screen with real HTML structure rather than returning the raw image itself.
+- Recreate all visible text, buttons, icons, input fields, spacing, shadows, colors, and responsive layout as accurately as possible.
+- Use Tailwind-style utility composition when helpful, but if script tags or external resources would violate hard constraints, reproduce the same visual result with inline CSS only.
+- The result should be ready to paste into a browser and look as close as possible to the uploaded image while still respecting product safety constraints.
 - Recreate the uploaded file as closely as possible for layout, spacing, hierarchy, component placement, emphasis, and overall appearance.
 - Keep differences to the minimum required for product constraints such as {{LANDING_URL}}, {{TRAINING_URL}}, token replacement, and safety restrictions.
 - If the user's prompt conflicts with the uploaded file, prioritize the uploaded file for this section.

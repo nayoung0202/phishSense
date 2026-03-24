@@ -6,6 +6,12 @@ import { TEMPLATE_AI_DRAFT_SESSION_KEY } from "@shared/templateAi";
 import { createQueryClient } from "@/lib/queryClient";
 import TemplateEdit from "./TemplateEdit";
 
+vi.mock("@/components/I18nProvider", () => ({
+  useI18n: () => ({
+    t: (key: string) => key,
+  }),
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),

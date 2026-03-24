@@ -179,6 +179,10 @@ describe("templateAi helpers", () => {
     expect(prompt).toContain("attachment-locked reproduction");
     expect(prompt).toContain("Recreate this mail body as closely as possible");
     expect(prompt).toContain("Recreate the uploaded file as closely as possible");
+    expect(prompt).toContain("You are the world's best frontend engineer.");
+    expect(prompt).toContain("100% pixel-perfect");
+    expect(prompt).toContain("Tailwind-style utility composition");
+    expect(prompt).toContain("real HTML structure rather than returning the raw image itself");
     expect(prompt).toContain("If no attachment is provided for a section, build that section from the internal reference baseline while adapting it to the user's requested topic, tone, difficulty, and extra requirements.");
     expect(prompt).toContain("If an attachment is provided for a section, reproduce that section as closely as possible");
     expect(prompt).toContain("Make the result feel plausible and realistic enough");

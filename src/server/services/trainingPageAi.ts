@@ -530,6 +530,13 @@ ${attachment.textContent}
 - training page reference attachment: ${attachment.name} (${attachment.mimeType})
 - training page generation mode: attachment-locked reproduction
 - A reference image for the training page will be attached after this prompt.
+- You are the world's best frontend engineer.
+- Recreate the uploaded image as a complete single HTML document as close to 100% pixel-perfect as possible.
+- Treat the uploaded image as the primary source of truth. Do not drift into unrelated scenarios or generic candidate variations.
+- Rebuild the screen with real HTML structure rather than returning the raw image itself.
+- Recreate all visible text, buttons, icons, spacing, shadows, colors, and responsive layout as accurately as possible.
+- Use Tailwind-style utility composition when helpful, but if script tags or external resources would violate hard constraints, reproduce the same visual result with inline CSS only.
+- The result should be ready to paste into a browser and look as close as possible to the uploaded image while still respecting product safety constraints.
 - Recreate the uploaded file as closely as possible for layout, spacing, hierarchy, emphasis, and overall appearance.
 - Keep differences to the minimum required for safety restrictions and product constraints.
 - If the user's prompt conflicts with the uploaded file, prioritize the uploaded file.

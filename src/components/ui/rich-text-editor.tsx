@@ -45,6 +45,89 @@ interface ToolbarItem {
 
 type EditorMode = "edit" | "html" | "preview";
 
+const EDITABLE_FORM_ATTR = "data-editor-form";
+const EDITABLE_FORM_ACTION_ATTR = "data-editor-form-action";
+const EDITABLE_FORM_METHOD_ATTR = "data-editor-form-method";
+const EDITABLE_FORM_TARGET_ATTR = "data-editor-form-target";
+const EDITABLE_SUBMIT_ATTR = "data-editor-submit";
+const EDITABLE_ORIGINAL_TYPE_ATTR = "data-editor-original-type";
+const EDITABLE_FORM_TAG = "ps-editor-form";
+
+const prepareHtmlForEditable = (html: string) =>
+  html
+    .replace(/<form\b([^>]*)>/gi, (_match, rawAttrs: string) => {
+      const actionMatch = rawAttrs.match(/\baction\s*=\s*(["'])(.*?)\1/i);
+      const methodMatch = rawAttrs.match(/\bmethod\s*=\s*(["'])(.*?)\1/i);
+      const targetMatch = rawAttrs.match(/\btarget\s*=\s*(["'])(.*?)\1/i);
+      const classMatch = rawAttrs.match(/\bclass\s*=\s*(["'])(.*?)\1/i);
+      const styleMatch = rawAttrs.match(/\bstyle\s*=\s*(["'])(.*?)\1/i);
+      const nextAttrs = [
+        `${EDITABLE_FORM_ATTR}="true"`,
+        actionMatch?.[2] ? `${EDITABLE_FORM_ACTION_ATTR}="${actionMatch[2]}"` : "",
+        methodMatch?.[2] ? `${EDITABLE_FORM_METHOD_ATTR}="${methodMatch[2]}"` : "",
+        targetMatch?.[2] ? `${EDITABLE_FORM_TARGET_ATTR}="${targetMatch[2]}"` : "",
+        classMatch?.[2] ? `class="${classMatch[2]}"` : "",
+        styleMatch?.[2] ? `style="${styleMatch[2]}"` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      return `<${EDITABLE_FORM_TAG} ${nextAttrs}>`;
+    })
+    .replace(/<\/form>/gi, `</${EDITABLE_FORM_TAG}>`)
+    .replace(/<button\b([^>]*)\btype=(["'])submit\2([^>]*)>/gi, (_match, before: string, _quote, after: string) => {
+      const preserved = `${before ?? ""} ${after ?? ""}`.trim();
+      return `<button ${EDITABLE_SUBMIT_ATTR}="true" ${EDITABLE_ORIGINAL_TYPE_ATTR}="submit"${preserved ? ` ${preserved}` : ""} type="button">`;
+    })
+    .replace(/<input\b([^>]*)\btype=(["'])submit\2([^>]*)\/?>/gi, (_match, before: string, _quote, after: string) => {
+      const preserved = `${before ?? ""} ${after ?? ""}`.trim();
+      return `<button ${EDITABLE_SUBMIT_ATTR}="true" ${EDITABLE_ORIGINAL_TYPE_ATTR}="submit"${preserved ? ` ${preserved}` : ""} type="button">제출</button>`;
+    });
+
+const restoreHtmlFromEditable = (html: string) =>
+  html
+    .replace(
+      new RegExp(`<${EDITABLE_FORM_TAG}\\b([^>]*)\\b${EDITABLE_FORM_ATTR}=(["'])true\\2([^>]*)>`, "gi"),
+      (_match, before: string, _quote: string, after: string) => {
+        const attrs = `${before ?? ""} ${after ?? ""}`;
+        const actionMatch = attrs.match(
+          new RegExp(`\\b${EDITABLE_FORM_ACTION_ATTR}\\s*=\\s*(["'])(.*?)\\1`, "i"),
+        );
+        const methodMatch = attrs.match(
+          new RegExp(`\\b${EDITABLE_FORM_METHOD_ATTR}\\s*=\\s*(["'])(.*?)\\1`, "i"),
+        );
+        const targetMatch = attrs.match(
+          new RegExp(`\\b${EDITABLE_FORM_TARGET_ATTR}\\s*=\\s*(["'])(.*?)\\1`, "i"),
+        );
+        const classMatch = attrs.match(/\bclass\s*=\s*(["'])(.*?)\1/i);
+        const styleMatch = attrs.match(/\bstyle\s*=\s*(["'])(.*?)\1/i);
+        const nextAttrs = [
+          actionMatch?.[2] ? `action="${actionMatch[2]}"` : "",
+          methodMatch?.[2] ? `method="${methodMatch[2]}"` : "",
+          targetMatch?.[2] ? `target="${targetMatch[2]}"` : "",
+          classMatch?.[2] ? `class="${classMatch[2]}"` : "",
+          styleMatch?.[2] ? `style="${styleMatch[2]}"` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        return `<form${nextAttrs ? ` ${nextAttrs}` : ""}>`;
+      },
+    )
+    .replace(new RegExp(`</${EDITABLE_FORM_TAG}>`, "gi"), "</form>")
+    .replace(
+      new RegExp(`<button\\b([^>]*)\\b${EDITABLE_SUBMIT_ATTR}=(["'])true\\2([^>]*)>`, "gi"),
+      (_match, before: string, _quote: string, after: string) => {
+        const attrs = `${before ?? ""} ${after ?? ""}`
+          .replace(new RegExp(`\\s*${EDITABLE_SUBMIT_ATTR}=(["'])true\\1`, "gi"), "")
+          .replace(new RegExp(`\\s*${EDITABLE_ORIGINAL_TYPE_ATTR}=(["'])submit\\1`, "gi"), "")
+          .replace(/\s*type=(["'])button\1/gi, "")
+          .trim();
+
+        return `<button${attrs ? ` ${attrs}` : ""} type="submit">`;
+      },
+    );
+
 export function RichTextEditor({
   value,
   onChange,
@@ -70,15 +153,16 @@ export function RichTextEditor({
     const editor = editorRef.current;
     if (!editor) return;
     if (mode !== "edit") return;
-    if (editor.innerHTML !== value) {
-      editor.innerHTML = value || "";
+    const editableHtml = prepareHtmlForEditable(value || "");
+    if (editor.innerHTML !== editableHtml) {
+      editor.innerHTML = editableHtml;
     }
   }, [value, mode]);
 
   const handleInput = () => {
     const editor = editorRef.current;
     if (!editor) return;
-    onChange(editor.innerHTML);
+    onChange(restoreHtmlFromEditable(editor.innerHTML));
   };
 
   const handlePaste = (event: ClipboardEvent<HTMLDivElement>) => {
@@ -104,7 +188,7 @@ export function RichTextEditor({
         if (!editor) return;
         editor.focus();
         document.execCommand("insertImage", false, reader.result as string);
-        onChange(editor.innerHTML);
+        onChange(restoreHtmlFromEditable(editor.innerHTML));
       };
       reader.readAsDataURL(file);
     });
@@ -127,7 +211,7 @@ export function RichTextEditor({
       document.execCommand(command, false);
     }
 
-    onChange(editor.innerHTML);
+    onChange(restoreHtmlFromEditable(editor.innerHTML));
   };
 
   const editSurfaceClassName =

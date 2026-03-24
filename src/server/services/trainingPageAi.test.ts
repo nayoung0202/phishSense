@@ -20,10 +20,10 @@ describe("trainingPageAi helpers", () => {
       generateCount: 2,
       preservedCandidates: [],
       referenceAttachment: {
-        name: "training-reference.html",
-        mimeType: "text/html",
-        kind: "html",
-        textContent: "<div>훈련안내 참고 레이아웃</div>",
+        name: "training-reference.png",
+        mimeType: "image/png",
+        kind: "image",
+        base64Data: "ZmFrZS1pbWFnZQ==",
       },
     });
 
@@ -37,8 +37,11 @@ describe("trainingPageAi helpers", () => {
     expect(prompt).toContain("공식 사이트, 공식 앱, 사내 포털 등 신뢰 가능한 경로로 직접 접속해 확인하라고 안내합니다.");
     expect(prompt).toContain("extra requirements: 계정 잠금 해제보다 주소 확인 안내를 더 강조해 주세요.");
     expect(prompt).toContain("{{SUBMIT_URL}} is not required for training-page output.");
-    expect(prompt).toContain("training-reference.html");
-    expect(prompt).toContain("<div>훈련안내 참고 레이아웃</div>");
+    expect(prompt).toContain("training-reference.png");
+    expect(prompt).toContain("You are the world's best frontend engineer.");
+    expect(prompt).toContain("100% pixel-perfect");
+    expect(prompt).toContain("Tailwind-style utility composition");
+    expect(prompt).toContain("real HTML structure rather than returning the raw image itself");
   });
 
   it("첨부가 없으면 내부 레퍼런스 기준 생성 모드를 사용한다", () => {
