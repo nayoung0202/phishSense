@@ -217,7 +217,10 @@ export function ReportGenerateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] w-[95vw] max-w-2xl flex-col overflow-hidden p-0">
+      <DialogContent
+        data-testid="report-generate-dialog"
+        className="flex max-h-[92vh] w-[96vw] max-w-[64rem] flex-col overflow-hidden p-0"
+      >
         <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle>{t("reportGenerate.title")}</DialogTitle>
           <DialogDescription>{t("reportGenerate.description")}</DialogDescription>

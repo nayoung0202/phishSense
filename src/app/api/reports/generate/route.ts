@@ -30,6 +30,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    return buildReadyTenantErrorResponse(error, "보고서 생성에 실패했습니다.");
+    console.error("[reports/generate] failed", error);
+    const message = error instanceof Error ? error.message : "보고서 생성에 실패했습니다.";
+    return buildReadyTenantErrorResponse(error, message);
   }
 }

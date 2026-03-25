@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const fsMock = vi.hoisted(() => ({
+  promises: {
+    copyFile: vi.fn(),
+  },
+}));
+
 const tenantStorageMock = vi.hoisted(() => ({
   getProjectForTenant: vi.fn(),
   getReportSettingForTenant: vi.fn(),
@@ -34,6 +40,22 @@ vi.mock("../tenant/tenantStorage", () => ({
   updateReportInstanceForTenantScope: tenantStorageMock.updateReportInstanceForTenantScope,
 }));
 
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  const promises = {
+    ...actual.promises,
+    copyFile: fsMock.promises.copyFile,
+  };
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      promises,
+    },
+    promises,
+  };
+});
+
 vi.mock("./reportStorage", () => ({
   buildTemplateFileKey: reportStorageMock.buildTemplateFileKey,
   buildReportFileKey: reportStorageMock.buildReportFileKey,
@@ -46,9 +68,14 @@ import { generateProjectReport } from "./reportGenerator";
 
 describe("reportGenerator report setting validation", () => {
   beforeEach(() => {
+    fsMock.promises.copyFile.mockReset();
     tenantStorageMock.getProjectForTenant.mockReset();
     tenantStorageMock.getReportSettingForTenant.mockReset();
+    tenantStorageMock.getActiveReportTemplateInTenant.mockReset();
+    tenantStorageMock.createReportTemplateForTenant.mockReset();
     reportStorageMock.fileExists.mockReset();
+    reportStorageMock.buildTemplateFileKey.mockReset();
+    reportStorageMock.ensureDirectoryForFile.mockReset();
     reportStorageMock.resolveStoragePath.mockReset();
 
     tenantStorageMock.getProjectForTenant.mockResolvedValue({
@@ -83,17 +110,7 @@ describe("reportGenerator report setting validation", () => {
       weekOfYear: [],
       createdAt: new Date("2025-01-01T00:00:00Z"),
     });
-  });
 
-  it("reportSettingId에 해당하는 설정이 없으면 실패한다", async () => {
-    tenantStorageMock.getReportSettingForTenant.mockResolvedValue(undefined);
-
-    await expect(
-      generateProjectReport("tenant-a", "project-1", { reportSettingId: "missing-setting" }),
-    ).rejects.toThrow("보고서 설정");
-  });
-
-  it("설정 로고 파일이 없으면 실패한다", async () => {
     tenantStorageMock.getReportSettingForTenant.mockResolvedValue({
       id: "setting-1",
       tenantId: "tenant-a",
@@ -106,11 +123,53 @@ describe("reportGenerator report setting validation", () => {
       createdAt: new Date("2025-01-01T00:00:00Z"),
       updatedAt: new Date("2025-01-01T00:00:00Z"),
     });
+  });
+
+  it("reportSettingId에 해당하는 설정이 없으면 실패한다", async () => {
+    tenantStorageMock.getReportSettingForTenant.mockResolvedValue(undefined);
+
+    await expect(
+      generateProjectReport("tenant-a", "project-1", { reportSettingId: "missing-setting" }),
+    ).rejects.toThrow("보고서 설정");
+  });
+
+  it("설정 로고 파일이 없으면 실패한다", async () => {
     reportStorageMock.resolveStoragePath.mockReturnValue("/tmp/logo.png");
     reportStorageMock.fileExists.mockImplementation(async (path: string) => path !== "/tmp/logo.png");
 
     await expect(
       generateProjectReport("tenant-a", "project-1", { reportSettingId: "setting-1" }),
     ).rejects.toThrow("로고");
+  });
+
+  it("templateId가 없으면 attached_assets 기본 템플릿을 우선 사용한다", async () => {
+    tenantStorageMock.getActiveReportTemplateInTenant.mockResolvedValue({
+      id: "template-old",
+      tenantId: "tenant-a",
+      name: "기본 보고서 템플릿",
+      version: "v3",
+      fileKey: "tenants/tenant-a/reports/templates/template-old/v3/template.docx",
+      isActive: true,
+      createdAt: new Date("2025-01-01T00:00:00Z"),
+      updatedAt: new Date("2025-01-01T00:00:00Z"),
+    });
+    reportStorageMock.resolveStoragePath.mockImplementation((fileKey: string) => {
+      if (fileKey.includes("reports/settings/setting-1/logo.png")) return "/tmp/logo.png";
+      if (fileKey.includes("template-old")) return "/tmp/template-old.docx";
+      return "/tmp/other";
+    });
+    reportStorageMock.fileExists.mockImplementation(async (filePath: string) => {
+      if (filePath === "/tmp/logo.png") return true;
+      if (filePath === "/Users/naong/Desktop/workspace/phishSense/attached_assets/default_report_template.docx") return true;
+      if (filePath === "/Users/naong/Desktop/workspace/phishSense/attached_assets/confidential_logo.png") return true;
+      return false;
+    });
+
+    await expect(
+      generateProjectReport("tenant-a", "project-1", { reportSettingId: "setting-1" }),
+    ).rejects.toThrow("보고서 캡처 이미지");
+
+    expect(fsMock.promises.copyFile).not.toHaveBeenCalled();
+    expect(tenantStorageMock.createReportTemplateForTenant).not.toHaveBeenCalled();
   });
 });

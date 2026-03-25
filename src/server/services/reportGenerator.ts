@@ -164,23 +164,63 @@ const ensureDefaultTemplate = async (
   );
 };
 
+type ResolvedReportTemplate = {
+  template: ReportTemplate;
+  templatePath: string;
+};
+
 const resolveTemplate = async (
   tenantId: string,
   templateId?: string | null,
-) => {
+): Promise<ResolvedReportTemplate> => {
   if (templateId) {
     const template = await getReportTemplateForTenant(tenantId, templateId);
     if (!template) {
       throw new Error("요청한 보고서 템플릿을 찾을 수 없습니다.");
     }
-    return template;
+    return {
+      template,
+      templatePath: resolveStoragePath(template.fileKey),
+    };
   }
 
   const active = await getActiveReportTemplateInTenant(tenantId);
-  if (active) return active;
+  if (await fileExists(DEFAULT_TEMPLATE_PATH)) {
+    if (active) {
+      return {
+        template: active,
+        templatePath: DEFAULT_TEMPLATE_PATH,
+      };
+    }
+
+    const defaultTemplate = await ensureDefaultTemplate(tenantId);
+    if (defaultTemplate) {
+      return {
+        template: defaultTemplate,
+        templatePath: DEFAULT_TEMPLATE_PATH,
+      };
+    }
+  }
+
+  if (active) {
+    const activePath = resolveStoragePath(active.fileKey);
+    if (await fileExists(activePath)) {
+      return {
+        template: active,
+        templatePath: activePath,
+      };
+    }
+
+    throw new Error("활성화된 보고서 템플릿 파일이 존재하지 않습니다.");
+  }
 
   const defaultTemplate = await ensureDefaultTemplate(tenantId);
-  if (defaultTemplate) return defaultTemplate;
+  if (defaultTemplate) {
+    return {
+      template: defaultTemplate,
+      templatePath: resolveStoragePath(defaultTemplate.fileKey),
+    };
+  }
 
   throw new Error("활성화된 보고서 템플릿이 없습니다.");
 };
@@ -243,8 +283,7 @@ export async function generateProjectReport(
 
   const { companyName, approverName, approverTitle, logoPath, confidentialPath, reportSettingId } =
     await resolveReportSettingConfig(tenantId, options?.reportSettingId ?? null);
-  const template = await resolveTemplate(tenantId, options?.templateId ?? null);
-  const templatePath = resolveStoragePath(template.fileKey);
+  const { template, templatePath } = await resolveTemplate(tenantId, options?.templateId ?? null);
   if (!(await fileExists(templatePath))) {
     throw new Error("보고서 템플릿 파일이 존재하지 않습니다.");
   }

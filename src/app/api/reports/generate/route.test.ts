@@ -65,4 +65,25 @@ describe("POST /api/reports/generate", () => {
     });
     expect(body.downloadUrl).toContain("/api/reports/instance-1/download");
   });
+
+  it("생성 실패 시 실제 오류 메시지를 응답에 담는다", async () => {
+    generatorMock.generateProjectReport.mockRejectedValue(new Error("보고서 캡처 이미지(훈련 안내 페이지)가 없습니다."));
+
+    const request = new Request("http://localhost/api/reports/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: "project-1",
+        reportSettingId: "setting-1",
+      }),
+    });
+
+    const response = await POST(request as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: "보고서 캡처 이미지(훈련 안내 페이지)가 없습니다.",
+    });
+  });
 });
