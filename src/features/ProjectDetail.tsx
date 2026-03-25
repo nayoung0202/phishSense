@@ -43,9 +43,14 @@ import {
 } from "@shared/projectDepartment";
 import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import {
+  PROJECT_DETAIL_REFETCH_INTERVAL_MS,
+  createAlwaysFreshQueryOptions,
+} from "@/lib/projectMetricsRealtime";
 import { apiRequest } from "@/lib/queryClient";
 import {
   PROJECTS_CALENDAR_QUERY_KEY,
+  PROJECTS_DETAIL_QUERY_KEY,
   PROJECTS_LIST_QUERY_KEY,
   PROJECTS_QUARTER_STATS_QUERY_KEY,
 } from "@/lib/queryKeys";
@@ -100,7 +105,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
   const [isTimelineExporting, setIsTimelineExporting] = useState(false);
   const [selectedLog, setSelectedLog] = useState<ActionLogItem | null>(null);
   const invalidateProjectQueries = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
+    queryClient.invalidateQueries({ queryKey: PROJECTS_DETAIL_QUERY_KEY(projectId) });
     queryClient.invalidateQueries({ queryKey: PROJECTS_LIST_QUERY_KEY });
     queryClient.invalidateQueries({ queryKey: PROJECTS_QUARTER_STATS_QUERY_KEY });
     queryClient.invalidateQueries({ queryKey: PROJECTS_CALENDAR_QUERY_KEY });
@@ -120,9 +125,10 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     isError,
     error,
   } = useQuery<Project>({
-    queryKey: ["/api/projects", projectId],
+    queryKey: PROJECTS_DETAIL_QUERY_KEY(projectId),
     enabled: Boolean(projectId),
     queryFn: fetchProject,
+    ...createAlwaysFreshQueryOptions(PROJECT_DETAIL_REFETCH_INTERVAL_MS),
   });
 
   const fetchActionLogs = async (): Promise<ActionLogResponse> => {
@@ -137,6 +143,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     queryKey: ["/api/projects", projectId, "action-logs"],
     enabled: Boolean(projectId),
     queryFn: fetchActionLogs,
+    ...createAlwaysFreshQueryOptions(PROJECT_DETAIL_REFETCH_INTERVAL_MS),
   });
 
   const actionLogItems = Array.isArray(actionLogs?.items) ? actionLogs.items : [];

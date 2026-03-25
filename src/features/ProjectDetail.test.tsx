@@ -14,6 +14,15 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+vi.mock("@/components/I18nProvider", () => ({
+  useI18n: () => ({
+    locale: "ko",
+    localeLabels: {},
+    setLocale: vi.fn(),
+    t: (key: string) => key,
+  }),
+}));
+
 const baseProject = {
   id: "project-1",
   name: "테스트 프로젝트",

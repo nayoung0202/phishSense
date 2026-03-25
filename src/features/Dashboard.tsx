@@ -30,6 +30,10 @@ import { type Project } from "@shared/schema";
 import { useI18n } from "@/components/I18nProvider";
 import { getIntlLocale } from "@/lib/i18n";
 import {
+  PROJECT_MONITORING_REFETCH_INTERVAL_MS,
+  createAlwaysFreshQueryOptions,
+} from "@/lib/projectMetricsRealtime";
+import {
   Users,
   BarChart3,
   Shield,
@@ -124,6 +128,7 @@ export default function Dashboard() {
   const intlLocale = getIntlLocale(locale);
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+    ...createAlwaysFreshQueryOptions(PROJECT_MONITORING_REFETCH_INTERVAL_MS),
   });
   const toMonthLabel = (date: Date) =>
     new Intl.DateTimeFormat(intlLocale, {

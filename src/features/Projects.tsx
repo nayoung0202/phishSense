@@ -71,6 +71,10 @@ import {
 import type { Project } from "@shared/schema";
 import { getProjectDepartmentDisplay } from "@shared/projectDepartment";
 import { apiRequest } from "@/lib/queryClient";
+import {
+  PROJECT_MONITORING_REFETCH_INTERVAL_MS,
+  createAlwaysFreshQueryOptions,
+} from "@/lib/projectMetricsRealtime";
 import { useToast } from "@/hooks/use-toast";
 import { ReportGenerateDialog } from "@/components/ReportGenerateDialog";
 import { ListPaginationControls } from "@/components/ListPaginationControls";
@@ -518,7 +522,7 @@ export default function Projects() {
       const sorted = Array.from(years).sort((a, b) => b - a);
       return sorted.length > 0 ? sorted : [today.getFullYear()];
     },
-    staleTime: Infinity,
+    ...createAlwaysFreshQueryOptions(),
   });
 
   const yearOptions = useMemo(() => {
@@ -557,6 +561,7 @@ export default function Projects() {
       if (params.search) queryString.set("q", params.search);
       return await fetchJson<Project[]>(`/api/projects?${queryString.toString()}`);
     },
+    ...createAlwaysFreshQueryOptions(PROJECT_MONITORING_REFETCH_INTERVAL_MS),
   });
 
   const quarterStatsQuery = useQuery({
@@ -565,6 +570,7 @@ export default function Projects() {
       const [, year] = queryKey;
       return await fetchJson<QuarterStatsItem[]>(`/api/projects/quarter-stats?year=${year}`);
     },
+    ...createAlwaysFreshQueryOptions(PROJECT_MONITORING_REFETCH_INTERVAL_MS),
   });
 
   const calendarQuery = useQuery({
@@ -582,6 +588,7 @@ export default function Projects() {
       );
     },
     enabled: viewMode === "calendar",
+    ...createAlwaysFreshQueryOptions(PROJECT_MONITORING_REFETCH_INTERVAL_MS),
   });
 
   const quarterProjects = projectsQuery.data ?? EMPTY_PROJECTS;
