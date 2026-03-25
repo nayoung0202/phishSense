@@ -5,26 +5,42 @@
 ### 준비물
 
 - Node.js 20+
+- Python 3.10+ (`venv`/`ensurepip` 포함)
 - PostgreSQL 접근 정보 또는 로컬 Docker 환경
 - `.env.example` 기반 `.env`
+- Debian/Ubuntu 계열에서 시스템 Python을 쓰면 `python3-venv` 또는 `python3.x-venv`가 추가로 필요할 수 있습니다.
 
 ### 기본 절차
 
 1. `.env.example`를 복사해 `.env`를 만듭니다.
 2. `DATABASE_URL`, 인증/플랫폼 관련 비밀값을 채웁니다.
-3. 스키마를 반영합니다.
+3. 의존성을 설치합니다. 이 단계에서 리포트 생성용 Python 가상환경(`.venv-report`)과 Python 패키지를 자동으로 맞춥니다.
+
+```bash
+npm install
+```
+
+4. Debian/Ubuntu에서 `ensurepip is not available` 오류가 나면 venv 패키지를 설치한 뒤 다시 실행합니다.
+
+```bash
+sudo apt install python3-venv
+# 또는
+sudo apt install python3.12-venv
+```
+
+5. 스키마를 반영합니다.
 
 ```bash
 npm run db:push
 ```
 
-4. 웹 앱을 실행합니다.
+6. 웹 앱을 실행합니다.
 
 ```bash
 npm run dev
 ```
 
-5. 실제 발송 테스트가 필요하면 별도 터미널에서 워커를 실행합니다.
+7. 실제 발송 테스트가 필요하면 별도 터미널에서 워커를 실행합니다.
 
 ```bash
 npm run worker:send
@@ -37,6 +53,8 @@ npm run worker:send
 - `npm run start`: 프로덕션 서버 실행
 - `npm run check`: TypeScript 타입 검사
 - `npm run test -- --run`: 테스트 일괄 실행
+- `npm run report:deps:install`: 리포트 Python 의존성 수동 설치/재설치
+- `npm run report:deps:check`: 리포트 Python 의존성 점검
 - `npm run db:push`: Drizzle 스키마 반영
 
 ## 필수 환경 변수 묶음
@@ -45,6 +63,7 @@ npm run worker:send
 
 - `APP_BASE_URL`
 - `DATABASE_URL`
+- `REPORT_PYTHON_BIN` (선택, 준비된 Python/venv 경로를 고정할 때)
 
 ### 인증
 
@@ -76,6 +95,12 @@ npm run worker:send
 - `smtp_accounts.allowed_domains_json`은 프로젝트 발신 이메일과 SMTP 테스트 발신 이메일의 허용 발신 도메인 정책으로 사용하며, 등록 도메인의 하위 도메인도 함께 허용합니다.
 - 실제 프로젝트 발신자 이름/이메일은 프로젝트 설정값을 우선 사용하고, 없을 때만 `MAIL_FROM_NAME`, `MAIL_FROM_EMAIL`을 fallback 합니다.
 - 관리자 SMTP 테스트 발송은 테스트 시점에 발신 이메일과 수신 이메일을 직접 입력하며, 발신 이메일은 선택한 발송 설정의 허용 발신 도메인 또는 그 하위 도메인과 일치해야 합니다.
+
+### 보고서 생성
+
+- 기본값은 프로젝트 루트의 `.venv-report`를 만들고 여기에 리포트 Python 의존성을 설치합니다.
+- 자동 설치를 생략하려면 `REPORT_SKIP_PYTHON_DEPS_INSTALL=true npm install`을 사용합니다.
+- 시스템 Python에 venv 지원이 없으면 패키지 설치 후 다시 실행하거나 `REPORT_PYTHON_BIN`으로 준비된 Python 경로를 지정합니다.
 
 ## 배포 체크리스트
 
