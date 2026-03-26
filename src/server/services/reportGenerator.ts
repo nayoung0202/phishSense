@@ -23,8 +23,8 @@ import {
   fileExists,
   resolveStoragePath,
 } from "./reportStorage";
+import { resolveReportPythonBin } from "./reportPythonRuntime";
 
-const PYTHON_BIN = process.env.REPORT_PYTHON_BIN ?? "python3";
 const PYTHON_SCRIPT = path.join(process.cwd(), "scripts", "report", "generate_report.py");
 const DEFAULT_TEMPLATE_PATH =
   process.env.REPORT_DEFAULT_TEMPLATE_PATH ??
@@ -112,7 +112,7 @@ const runPythonRenderer = async (payload: object) => {
   }
 
   return new Promise<void>((resolve, reject) => {
-    const child = spawn(PYTHON_BIN, [PYTHON_SCRIPT], {
+    const child = spawn(resolveReportPythonBin(), [PYTHON_SCRIPT], {
       stdio: ["pipe", "pipe", "pipe"],
     });
 

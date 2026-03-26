@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
@@ -180,10 +180,24 @@ const createLocalVenvOrFail = () => {
   );
 };
 
+const hasWorkingPip = (pythonBin) => {
+  const result = spawnSync(pythonBin, ["-m", "pip", "--version"], {
+    cwd: repoRoot,
+    stdio: "ignore",
+  });
+
+  return !result.error && result.status === 0;
+};
+
 const resolvePythonBin = () => {
   const configuredPython = process.env.REPORT_PYTHON_BIN?.trim();
   if (configuredPython) {
     return configuredPython;
+  }
+
+  if (existsSync(defaultVenvPython) && !hasWorkingPip(defaultVenvPython)) {
+    log("existing local venv is missing pip, recreating .venv-report");
+    rmSync(defaultVenvDir, { recursive: true, force: true });
   }
 
   if (!existsSync(defaultVenvPython)) {
