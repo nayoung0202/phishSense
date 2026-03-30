@@ -9,6 +9,7 @@ import {
   createReportTemplateForTenant,
   getActiveReportTemplateInTenant,
   getProjectForTenant,
+  getProjectsForTenant,
   getProjectTargetsForTenant,
   getReportSettingForTenant,
   getReportTemplateForTenant,
@@ -23,6 +24,7 @@ import {
   fileExists,
   resolveStoragePath,
 } from "./reportStorage";
+import { splitDepartmentEntries } from "./projectsShared";
 import { resolveReportPythonBin } from "./reportPythonRuntime";
 
 const PYTHON_SCRIPT = path.join(process.cwd(), "scripts", "report", "generate_report.py");
@@ -49,6 +51,158 @@ const formatPercent = (count: number, total: number) => {
   return `${percent.toFixed(1)}%`;
 };
 
+const formatHeadCount = (count: number) => `${count}명`;
+
+const formatCountWithRate = (count: number, total: number) =>
+  `${formatHeadCount(count)} (${formatPercent(count, total)})`;
+
+const formatSignedDelta = (value: number, suffix: "%" | "%p") => {
+  const rounded = Number(value.toFixed(1));
+  if (Object.is(rounded, -0)) {
+    return `0.0${suffix}`;
+  }
+  const prefix = rounded > 0 ? "+" : "";
+  return `${prefix}${rounded.toFixed(1)}${suffix}`;
+};
+
+const formatCountChangeRate = (current: number, previous: number) => {
+  if (previous <= 0) return "-";
+  return formatSignedDelta(((current - previous) / previous) * 100, "%");
+};
+
+const formatRatePointChange = (
+  currentCount: number,
+  currentTotal: number,
+  previousCount: number,
+  previousTotal: number,
+) => {
+  if (previousTotal <= 0) return "-";
+  const currentRate = currentTotal > 0 ? (currentCount / currentTotal) * 100 : 0;
+  const previousRate = (previousCount / previousTotal) * 100;
+  return formatSignedDelta(currentRate - previousRate, "%p");
+};
+
+const hasDateValue = (value?: Date | string | null) => {
+  if (!value) return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime());
+};
+
+const resolveTargetResultState = (projectTarget: {
+  status?: string | null;
+  openedAt?: Date | string | null;
+  clickedAt?: Date | string | null;
+  submittedAt?: Date | string | null;
+}) => {
+  const submitted = hasDateValue(projectTarget.submittedAt) || projectTarget.status === "submitted";
+  const clicked =
+    submitted ||
+    hasDateValue(projectTarget.clickedAt) ||
+    projectTarget.status === "clicked";
+  const opened =
+    clicked ||
+    hasDateValue(projectTarget.openedAt) ||
+    projectTarget.status === "opened";
+
+  return { opened, clicked, submitted };
+};
+
+const getPrimaryDepartment = (department?: string | null) =>
+  splitDepartmentEntries(department)[0] ?? "미지정";
+
+const getProjectMetricSnapshot = (project: Project) => {
+  const targetCount = Math.max(0, project.targetCount ?? 0);
+  const openCount = Math.max(0, project.openCount ?? 0);
+  const clickCount = Math.max(0, project.clickCount ?? 0);
+  const submitCount = Math.max(0, project.submitCount ?? 0);
+
+  return {
+    targetCount,
+    openCount,
+    clickCount,
+    submitCount,
+    targetCountLabel: formatHeadCount(targetCount),
+    openCountLabel: formatCountWithRate(openCount, targetCount),
+    clickCountLabel: formatCountWithRate(clickCount, targetCount),
+    submitCountLabel: formatCountWithRate(submitCount, targetCount),
+  };
+};
+
+const formatQuarterLabel = (year: number, quarter: number, includeYear: boolean) =>
+  includeYear ? `${year}년 ${quarter}분기` : `${quarter}분기`;
+
+const buildComparisonRows = (project: Project, previousProject?: Project | null) => {
+  const currentMetrics = getProjectMetricSnapshot(project);
+  const previousMetrics = previousProject ? getProjectMetricSnapshot(previousProject) : null;
+  const currentYear = resolveReportYear(project);
+  const currentQuarter = resolveReportQuarter(project);
+  const previousYear =
+    currentQuarter === 1 ? currentYear - 1 : resolveReportYear(previousProject ?? project);
+  const previousQuarter =
+    currentQuarter === 1 ? 4 : previousProject ? resolveReportQuarter(previousProject) : currentQuarter - 1;
+  const includeYear = previousYear !== currentYear;
+  const previousLabel = formatQuarterLabel(previousYear, previousQuarter, includeYear);
+  const currentLabel = formatQuarterLabel(currentYear, currentQuarter, includeYear);
+
+  const previousValue = (value: string) => (previousMetrics ? value : "-");
+  const previousCountValue = (count: number, total: number) =>
+    previousMetrics ? formatCountWithRate(count, total) : "-";
+
+  return {
+    comparisonPreviousLabel: previousLabel,
+    comparisonCurrentLabel: currentLabel,
+    comparisonRows: [
+      {
+        label: "훈련 대상 수",
+        previous_value: previousValue(formatHeadCount(previousMetrics?.targetCount ?? 0)),
+        current_value: currentMetrics.targetCountLabel,
+        delta_value: previousMetrics
+          ? formatCountChangeRate(currentMetrics.targetCount, previousMetrics.targetCount)
+          : "-",
+      },
+      {
+        label: "메일 열람",
+        previous_value: previousCountValue(previousMetrics?.openCount ?? 0, previousMetrics?.targetCount ?? 0),
+        current_value: currentMetrics.openCountLabel,
+        delta_value: previousMetrics
+          ? formatRatePointChange(
+              currentMetrics.openCount,
+              currentMetrics.targetCount,
+              previousMetrics.openCount,
+              previousMetrics.targetCount,
+            )
+          : "-",
+      },
+      {
+        label: "링크 클릭",
+        previous_value: previousCountValue(previousMetrics?.clickCount ?? 0, previousMetrics?.targetCount ?? 0),
+        current_value: currentMetrics.clickCountLabel,
+        delta_value: previousMetrics
+          ? formatRatePointChange(
+              currentMetrics.clickCount,
+              currentMetrics.targetCount,
+              previousMetrics.clickCount,
+              previousMetrics.targetCount,
+            )
+          : "-",
+      },
+      {
+        label: "개인정보 입력",
+        previous_value: previousCountValue(previousMetrics?.submitCount ?? 0, previousMetrics?.targetCount ?? 0),
+        current_value: currentMetrics.submitCountLabel,
+        delta_value: previousMetrics
+          ? formatRatePointChange(
+              currentMetrics.submitCount,
+              currentMetrics.targetCount,
+              previousMetrics.submitCount,
+              previousMetrics.targetCount,
+            )
+          : "-",
+      },
+    ],
+  };
+};
+
 const buildReportData = (
   project: Project,
   options: {
@@ -63,13 +217,7 @@ const buildReportData = (
     emailSubject: string;
   },
 ) => {
-  const targetCount = Math.max(0, project.targetCount ?? 0);
-  const openCount = Math.max(0, project.openCount ?? 0);
-  const clickCount = Math.max(0, project.clickCount ?? 0);
-  const submitCount = Math.max(0, project.submitCount ?? 0);
-  const openLabel = `${openCount}명 (${formatPercent(openCount, targetCount)})`;
-  const clickLabel = `${clickCount}명 (${formatPercent(clickCount, targetCount)})`;
-  const submitLabel = `${submitCount}명 (${formatPercent(submitCount, targetCount)})`;
+  const metrics = getProjectMetricSnapshot(project);
 
   return {
     company_name: options.companyName,
@@ -87,17 +235,17 @@ const buildReportData = (
     approver_title: options.approverTitle,
     department: project.department ?? "",
     description: project.description ?? "",
-    target_count: targetCount,
-    open_count: openCount,
-    open_rate: formatPercent(openCount, targetCount),
-    click_count: clickCount,
-    click_rate: formatPercent(clickCount, targetCount),
-    submit_count: submitCount,
-    submit_rate: formatPercent(submitCount, targetCount),
-    target_count_label: `${targetCount}명`,
-    open_count_label: openLabel,
-    click_count_label: clickLabel,
-    submit_count_label: submitLabel,
+    target_count: metrics.targetCount,
+    open_count: metrics.openCount,
+    open_rate: formatPercent(metrics.openCount, metrics.targetCount),
+    click_count: metrics.clickCount,
+    click_rate: formatPercent(metrics.clickCount, metrics.targetCount),
+    submit_count: metrics.submitCount,
+    submit_rate: formatPercent(metrics.submitCount, metrics.targetCount),
+    target_count_label: metrics.targetCountLabel,
+    open_count_label: metrics.openCountLabel,
+    click_count_label: metrics.clickCountLabel,
+    submit_count_label: metrics.submitCountLabel,
     scenario_title: options.scenarioTitle,
     email_subject: options.emailSubject,
     summary: project.description ?? "",
@@ -327,6 +475,28 @@ export async function generateProjectReport(
   const templateRecord = project.templateId
     ? await getTemplateForTenant(tenantId, project.templateId)
     : undefined;
+  const previousComparisonProject = (() => {
+    const currentYear = resolveReportYear(project);
+    const currentQuarter = resolveReportQuarter(project);
+    const targetYear = currentQuarter === 1 ? currentYear - 1 : currentYear;
+    const targetQuarter = currentQuarter === 1 ? 4 : currentQuarter - 1;
+
+    return getProjectsForTenant(tenantId).then((projects) =>
+      projects
+        .filter((candidate) => {
+          if (candidate.id === project.id) return false;
+          if (candidate.status !== "완료") return false;
+          return (
+            resolveReportYear(candidate) === targetYear &&
+            resolveReportQuarter(candidate) === targetQuarter
+          );
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.endDate).getTime() - new Date(a.endDate).getTime(),
+        )[0] ?? null,
+    );
+  })();
 
   const reportInstance = await createReportInstanceForTenant(tenantId, {
     projectId: project.id,
@@ -350,21 +520,71 @@ export async function generateProjectReport(
   const submitMissing = Math.max(targetCount - submitCount, 0);
 
   const projectTargets = await getProjectTargetsForTenant(tenantId, project.id);
-  const detailRows = await Promise.all(
+  const detailRowsRaw = await Promise.all(
     projectTargets.map(async (target) => {
       const detail = await getTargetForTenant(tenantId, target.targetId);
-      const opened = target.status === "opened" || target.status === "clicked" || target.status === "submitted";
-      const clicked = target.status === "clicked" || target.status === "submitted";
-      const submitted = target.status === "submitted";
+      const state = resolveTargetResultState(target);
       return {
+        department: getPrimaryDepartment(detail?.department),
         name: detail?.name ?? "-",
         email: detail?.email ?? "-",
-        opened: opened ? "O" : "X",
-        clicked: clicked ? "O" : "X",
-        submitted: submitted ? "O" : "X",
+        opened: state.opened ? "O" : "X",
+        clicked: state.clicked ? "O" : "X",
+        submitted: state.submitted ? "O" : "X",
       };
     }),
   );
+  const detailRows =
+    detailRowsRaw.length > 0
+      ? detailRowsRaw.map(({ department: _department, ...row }) => row)
+      : [{ name: "-", email: "-", opened: "-", clicked: "-", submitted: "-" }];
+
+  const departmentMap = new Map<
+    string,
+    {
+      targetCount: number;
+      openCount: number;
+      clickCount: number;
+      submitCount: number;
+    }
+  >();
+
+  detailRowsRaw.forEach((row) => {
+    const current = departmentMap.get(row.department) ?? {
+      targetCount: 0,
+      openCount: 0,
+      clickCount: 0,
+      submitCount: 0,
+    };
+    current.targetCount += 1;
+    current.openCount += row.opened === "O" ? 1 : 0;
+    current.clickCount += row.clicked === "O" ? 1 : 0;
+    current.submitCount += row.submitted === "O" ? 1 : 0;
+    departmentMap.set(row.department, current);
+  });
+
+  const departmentRows =
+    departmentMap.size > 0
+      ? Array.from(departmentMap.entries())
+          .sort(([left], [right]) => left.localeCompare(right, "ko"))
+          .map(([departmentName, counts]) => ({
+            department: departmentName,
+            target_count_label: formatHeadCount(counts.targetCount),
+            open_count_label: formatCountWithRate(counts.openCount, counts.targetCount),
+            click_count_label: formatCountWithRate(counts.clickCount, counts.targetCount),
+            submit_count_label: formatCountWithRate(counts.submitCount, counts.targetCount),
+          }))
+      : [
+          {
+            department: "-",
+            target_count_label: formatHeadCount(0),
+            open_count_label: formatCountWithRate(0, 0),
+            click_count_label: formatCountWithRate(0, 0),
+            submit_count_label: formatCountWithRate(0, 0),
+          },
+        ];
+
+  const comparisonData = buildComparisonRows(project, await previousComparisonProject);
 
   try {
     await runPythonRenderer({
@@ -383,6 +603,10 @@ export async function generateProjectReport(
           emailSubject: templateRecord?.subject ?? project.name ?? "",
         }),
         detail_rows: detailRows,
+        department_rows: departmentRows,
+        comparison_previous_label: comparisonData.comparisonPreviousLabel,
+        comparison_current_label: comparisonData.comparisonCurrentLabel,
+        comparison_rows: comparisonData.comparisonRows,
       },
       images: [
         {
