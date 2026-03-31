@@ -939,4 +939,173 @@ describe("generateTemplateAiCandidates", () => {
     );
     expect(requestBody.contents[0]?.parts[0]?.text).toContain("<div>악성본문 참고</div>");
   });
+
+  it("Anthropic 이미지 첨부 요청은 이미지를 텍스트보다 먼저 보내고 더 큰 max_tokens를 사용한다", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-key");
+    vi.stubEnv("GEMINI_API_KEY", "");
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                candidates: [
+                  {
+                    subject: "후보 1",
+                    body: '<a href="{{LANDING_URL}}">확인</a>',
+                    maliciousPageContent:
+                      '<form action="{{TRAINING_URL}}"><button type="submit">제출</button></form>',
+                    summary: "요약 1",
+                  },
+                ],
+              }),
+            },
+          ],
+          model: "claude-sonnet-4-20250514",
+          usage: {
+            input_tokens: 123,
+            output_tokens: 456,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await generateTemplateAiCandidates({
+      ...baseRequest,
+      generateCount: 1,
+      mailBodyReferenceAttachment: {
+        name: "mail-reference.png",
+        mimeType: "image/png",
+        kind: "image",
+        base64Data: "bWFpbC1pbWFnZQ==",
+      },
+      maliciousPageReferenceAttachment: {
+        name: "landing-reference.jpg",
+        mimeType: "image/jpeg",
+        kind: "image",
+        base64Data: "bGFuZGluZy1pbWFnZQ==",
+      },
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+      max_tokens: number;
+      messages: Array<{
+        content: Array<{ type: string }>;
+      }>;
+    };
+
+    expect(requestBody.max_tokens).toBe(12288);
+    expect(requestBody.messages[0]?.content[0]?.type).toBe("image");
+    expect(requestBody.messages[0]?.content[1]?.type).toBe("image");
+    expect(requestBody.messages[0]?.content.at(-1)?.type).toBe("text");
+  });
+
+  it("Anthropic 응답이 max_tokens로 잘리면 더 큰 max_tokens로 재시도한다", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-key");
+    vi.stubEnv("GEMINI_API_KEY", "");
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            content: [
+              {
+                type: "text",
+                text: '{"candidates":[{"subject":"후보 1"',
+              },
+            ],
+            stop_reason: "max_tokens",
+            model: "claude-sonnet-4-20250514",
+            usage: {
+              input_tokens: 100,
+              output_tokens: 12288,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  candidates: [
+                    {
+                      subject: "후보 1",
+                      body: '<a href="{{LANDING_URL}}">확인</a>',
+                      maliciousPageContent:
+                        '<form action="{{TRAINING_URL}}"><button type="submit">제출</button></form>',
+                      summary: "요약 1",
+                    },
+                  ],
+                }),
+              },
+            ],
+            stop_reason: "end_turn",
+            model: "claude-sonnet-4-20250514",
+            usage: {
+              input_tokens: 123,
+              output_tokens: 456,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        ),
+      );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = generateTemplateAiCandidates({
+      ...baseRequest,
+      generateCount: 1,
+      mailBodyReferenceAttachment: {
+        name: "mail-reference.png",
+        mimeType: "image/png",
+        kind: "image",
+        base64Data: "bWFpbC1pbWFnZQ==",
+      },
+    });
+
+    await vi.runAllTimersAsync();
+
+    await expect(resultPromise).resolves.toMatchObject({
+      candidates: expect.arrayContaining([
+        expect.objectContaining({
+          subject: "후보 1",
+        }),
+      ]),
+    });
+
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+      max_tokens: number;
+    };
+    const secondBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)) as {
+      max_tokens: number;
+    };
+
+    expect(firstBody.max_tokens).toBe(12288);
+    expect(secondBody.max_tokens).toBe(16384);
+  });
 });

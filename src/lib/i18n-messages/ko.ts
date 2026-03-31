@@ -66,7 +66,7 @@ export const koMessages = {
   "auth.firstTime": "처음 이용하시나요?",
   "auth.startFree": "무료로 시작하기",
   "settings.title": "설정",
-  "settings.subtitle": "언어, 도메인, 멤버, 구독, 크래딧, API 키를 관리합니다.",
+  "settings.subtitle": "언어, 도메인, 멤버, 구독, 크레딧을 관리합니다.",
   "settings.general": "일반",
   "settings.domain": "도메인",
   "settings.members": "멤버",

@@ -70,7 +70,7 @@ export const jaMessages: TranslationMessages = {
   "auth.startFree": "無料で始める",
   "settings.title": "設定",
   "settings.subtitle":
-    "言語、ドメイン、メンバー、サブスクリプション、クレジット、APIキーを管理します。",
+    "言語、ドメイン、メンバー、サブスクリプション、クレジットを管理します。",
   "settings.general": "一般",
   "settings.domain": "ドメイン",
   "settings.members": "メンバー",

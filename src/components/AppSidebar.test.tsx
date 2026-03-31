@@ -90,6 +90,7 @@ describe("AppSidebar", () => {
     expect(screen.getByRole("link", { name: /settings.domain/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /settings.members/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /settings.subscription/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /settings.apiKeys/i })).not.toBeInTheDocument();
     expect(screen.queryByText("nav.workspace")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /nav.projects/i })).not.toBeInTheDocument();
   });

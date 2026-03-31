@@ -708,4 +708,66 @@ describe("generateTrainingPageAiCandidates", () => {
       ]),
     );
   });
+
+  it("Anthropic 이미지 첨부 요청은 이미지를 텍스트보다 먼저 보내고 더 큰 max_tokens를 사용한다", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "anthropic-key");
+    vi.stubEnv("GEMINI_API_KEY", "");
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                candidates: [
+                  {
+                    name: "훈련 후보 1",
+                    description: "설명 1",
+                    content: "<section><p>학습 안내를 확인해 주세요.</p></section>",
+                    summary: "요약 1",
+                  },
+                ],
+              }),
+            },
+          ],
+          model: "claude-sonnet-4-20250514",
+          usage: {
+            input_tokens: 111,
+            output_tokens: 222,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      ),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await generateTrainingPageAiCandidates({
+      ...baseRequest,
+      generateCount: 1,
+      referenceAttachment: {
+        name: "training-reference.png",
+        mimeType: "image/png",
+        kind: "image",
+        base64Data: "dHJhaW5pbmctaW1hZ2U=",
+      },
+    });
+
+    const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+      max_tokens: number;
+      messages: Array<{
+        content: Array<{ type: string }>;
+      }>;
+    };
+
+    expect(requestBody.max_tokens).toBe(12288);
+    expect(requestBody.messages[0]?.content[0]?.type).toBe("image");
+    expect(requestBody.messages[0]?.content.at(-1)?.type).toBe("text");
+  });
 });

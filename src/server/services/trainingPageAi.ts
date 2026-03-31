@@ -41,6 +41,7 @@ type AnthropicMessagePayload = {
     text?: string;
   }>;
   model?: string;
+  stop_reason?: string | null;
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
@@ -124,6 +125,8 @@ const responseSchema = {
 const OPENAI_TRAINING_PAGE_AI_MODEL = "gpt-4.1-mini";
 const ANTHROPIC_TRAINING_PAGE_AI_MODEL = "claude-sonnet-4-20250514";
 const GEMINI_TRAINING_PAGE_AI_FALLBACK_MODELS = ["gemini-2.5-flash"] as const;
+const ANTHROPIC_DEFAULT_MAX_TOKENS = [8192, 10240, 12288] as const;
+const ANTHROPIC_ATTACHMENT_MAX_TOKENS = [12288, 16384, 24576] as const;
 
 const defaultTrainingPageReferenceHtml = `
 <section style="max-width:760px;margin:48px auto;padding:40px;border:1px solid #e5e7eb;border-radius:24px;background:#ffffff;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#111827;">
@@ -582,7 +585,7 @@ ${attachment.textContent}
   return `
 - training page reference attachment: ${attachment.name} (${attachment.mimeType})
 - training page generation mode: attachment-locked reproduction
-- A reference image for the training page will be attached after this prompt.
+- The reference image for the training page is included with this request.
 - You are the world's best frontend engineer.
 - Recreate the uploaded image as a complete single HTML document as close to 100% pixel-perfect as possible.
 - Treat the uploaded image as the primary source of truth. Do not drift into unrelated scenarios or generic candidate variations.
@@ -656,7 +659,7 @@ const buildAnthropicUserContent = (request: TrainingPageAiRequest) => {
           data: string;
         };
       }
-  > = [{ type: "text", text: buildTrainingPageAiPrompt(request) }];
+  > = [];
 
   if (request.referenceAttachment?.kind === "image" && request.referenceAttachment.base64Data) {
     content.push({
@@ -669,7 +672,17 @@ const buildAnthropicUserContent = (request: TrainingPageAiRequest) => {
     });
   }
 
+  content.push({ type: "text", text: buildTrainingPageAiPrompt(request) });
+
   return content;
+};
+
+const resolveAnthropicMaxTokens = (request: TrainingPageAiRequest, attempt: number) => {
+  const steps = request.referenceAttachment
+    ? ANTHROPIC_ATTACHMENT_MAX_TOKENS
+    : ANTHROPIC_DEFAULT_MAX_TOKENS;
+
+  return steps[Math.min(attempt, steps.length - 1)] ?? steps[steps.length - 1];
 };
 
 const requestGeminiCandidates = async (
@@ -870,10 +883,20 @@ const createAnthropicInvalidResponseError = () =>
     retryable: true,
   });
 
+const createAnthropicTruncatedResponseError = () =>
+  createTrainingPageAiServiceError({
+    status: 503,
+    code: "anthropic_response_truncated",
+    message: "AI 훈련안내페이지 생성 응답이 길어 중간에 잘렸습니다. 잠시 후 다시 시도하세요.",
+    retryable: true,
+  });
+
 const requestAnthropicCandidates = async (request: TrainingPageAiRequest, apiKey: string) => {
   let lastError: TrainingPageAiServiceError | null = null;
 
   for (let attempt = 0; attempt <= trainingPageAiRetryDelaysMs.length; attempt += 1) {
+    const maxTokens = resolveAnthropicMaxTokens(request, attempt);
+
     try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -886,7 +909,7 @@ const requestAnthropicCandidates = async (request: TrainingPageAiRequest, apiKey
           model:
             process.env.ANTHROPIC_TRAINING_PAGE_AI_MODEL?.trim() ||
             ANTHROPIC_TRAINING_PAGE_AI_MODEL,
-          max_tokens: 8192,
+          max_tokens: maxTokens,
           messages: [
             {
               role: "user",
@@ -901,6 +924,9 @@ const requestAnthropicCandidates = async (request: TrainingPageAiRequest, apiKey
       } else {
         try {
           const payload = await response.json();
+          if (payload?.stop_reason === "max_tokens") {
+            throw createAnthropicTruncatedResponseError();
+          }
           const text = extractAnthropicJsonText(payload);
 
           JSON.parse(text);

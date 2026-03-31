@@ -43,6 +43,7 @@ type AnthropicMessagePayload = {
     text?: string;
   }>;
   model?: string;
+  stop_reason?: string | null;
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
@@ -127,6 +128,8 @@ const responseSchema = {
 const OPENAI_TEMPLATE_AI_MODEL = "gpt-4.1-mini";
 const ANTHROPIC_TEMPLATE_AI_MODEL = "claude-sonnet-4-20250514";
 const GEMINI_TEMPLATE_AI_FALLBACK_MODELS = ["gemini-2.5-flash"] as const;
+const ANTHROPIC_DEFAULT_MAX_TOKENS = [8192, 10240, 12288] as const;
+const ANTHROPIC_ATTACHMENT_MAX_TOKENS = [12288, 16384, 24576] as const;
 
 const defaultMailBodyReferenceHtml = `
 <div style="max-width:600px;margin:0 auto;padding:32px;border:1px solid #e5e7eb;border-radius:16px;background:#ffffff;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#111827;">
@@ -626,7 +629,8 @@ ${attachment.textContent}
   return `
 - ${label} reference attachment: ${attachment.name} (${attachment.mimeType})
 - ${label} generation mode: attachment-locked reproduction
-- A reference image for ${label} will be attached after this prompt.
+- The reference image for ${label} is included with this request.
+- If multiple images are included, they are ordered as: mail body first, malicious page second.
 - You are the world's best frontend engineer.
 - Recreate the uploaded image as a complete single HTML document as close to 100% pixel-perfect as possible.
 - Treat the uploaded image as the primary source of truth. Do not drift into unrelated scenarios or generic candidate variations.
@@ -746,7 +750,7 @@ const buildAnthropicUserContent = (request: TemplateAiRequest) => {
           data: string;
         };
       }
-  > = [{ type: "text", text: buildTemplateAiPrompt(request) }];
+  > = [];
 
   if (
     request.mailBodyReferenceAttachment?.kind === "image" &&
@@ -776,7 +780,18 @@ const buildAnthropicUserContent = (request: TemplateAiRequest) => {
     });
   }
 
+  content.push({ type: "text", text: buildTemplateAiPrompt(request) });
+
   return content;
+};
+
+const resolveAnthropicMaxTokens = (request: TemplateAiRequest, attempt: number) => {
+  const steps =
+    request.mailBodyReferenceAttachment || request.maliciousPageReferenceAttachment
+      ? ANTHROPIC_ATTACHMENT_MAX_TOKENS
+      : ANTHROPIC_DEFAULT_MAX_TOKENS;
+
+  return steps[Math.min(attempt, steps.length - 1)] ?? steps[steps.length - 1];
 };
 
 const requestGeminiCandidates = async (
@@ -983,10 +998,20 @@ const createAnthropicInvalidResponseError = () =>
     retryable: true,
   });
 
+const createAnthropicTruncatedResponseError = () =>
+  createTemplateAiServiceError({
+    status: 503,
+    code: "anthropic_response_truncated",
+    message: "AI 템플릿 생성 응답이 길어 중간에 잘렸습니다. 잠시 후 다시 시도하세요.",
+    retryable: true,
+  });
+
 const requestAnthropicCandidates = async (request: TemplateAiRequest, apiKey: string) => {
   let lastError: TemplateAiServiceError | null = null;
 
   for (let attempt = 0; attempt <= templateAiRetryDelaysMs.length; attempt += 1) {
+    const maxTokens = resolveAnthropicMaxTokens(request, attempt);
+
     try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -998,7 +1023,7 @@ const requestAnthropicCandidates = async (request: TemplateAiRequest, apiKey: st
         body: JSON.stringify({
           model:
             process.env.ANTHROPIC_TEMPLATE_AI_MODEL?.trim() || ANTHROPIC_TEMPLATE_AI_MODEL,
-          max_tokens: 8192,
+          max_tokens: maxTokens,
           messages: [
             {
               role: "user",
@@ -1012,6 +1037,9 @@ const requestAnthropicCandidates = async (request: TemplateAiRequest, apiKey: st
         lastError = createAnthropicApiError(response.status, await response.text());
       } else {
         const payload = await response.json();
+        if (payload?.stop_reason === "max_tokens") {
+          throw createAnthropicTruncatedResponseError();
+        }
         const text = extractAnthropicJsonText(payload);
 
         JSON.parse(text);

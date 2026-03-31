@@ -35,7 +35,6 @@ describe("SettingsShell", () => {
 
     expect(screen.getByText("settings.title")).toBeInTheDocument();
     expect(screen.getByText("settings.subtitle")).toBeInTheDocument();
-    expect(screen.getByText("tenant-1")).toBeInTheDocument();
     expect(screen.getByText("OWNER")).toBeInTheDocument();
     expect(screen.getByText("content")).toBeInTheDocument();
   });

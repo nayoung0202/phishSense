@@ -70,7 +70,7 @@ export const enMessages: TranslationMessages = {
   "auth.startFree": "Start for free",
   "settings.title": "Settings",
   "settings.subtitle":
-    "Manage language, domains, members, subscription, credits, and API keys.",
+    "Manage language, domains, members, subscription, and credits.",
   "settings.general": "General",
   "settings.domain": "Domain",
   "settings.members": "Members",
