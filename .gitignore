@@ -15,6 +15,7 @@ dev.db
 *.sqlite
 public/uploads
 storage/reports
+tenant-export/
 
 .idea
 .local

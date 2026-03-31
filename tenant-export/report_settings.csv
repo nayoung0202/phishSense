@@ -1,3 +1,0 @@
-id,name,company_name,company_logo_file_key,approver_name,approver_title,is_default,created_at,updated_at,tenant_id
-3931e2e1-0ff7-4f76-b0d0-059761defd37,에이스엔지니어_보고서설정,에이스엔지니어링,tenants/tenant-local-001/reports/settings/3931e2e1-0ff7-4f76-b0d0-059761defd37/logo.png,홍길동,"",f,2026-02-23 16:14:53.39,2026-03-25 02:12:04.863,tenant-local-001
-b20b8d56-a445-413e-bee9-37e00cde2e73,이브리즈_보고서설정,이브리즈,tenants/tenant-local-001/reports/settings/b20b8d56-a445-413e-bee9-37e00cde2e73/logo.png,김철수,"",t,2026-02-23 16:13:51.073,2026-03-25 02:12:04.863,tenant-local-001
