@@ -30,7 +30,8 @@
 ### platform-api
 
 - tenant / membership / entitlement canonical contract 제공
-- billing catalog / subscription / credits / BYOK contract 제공
+- billing catalog / subscription / credits / credit recharge contract 제공
+- entitlement 확정 후 plan별 초기 포함 크레딧 부여
 - invite token hash 저장과 membership 반영
 - Stripe Checkout / Portal 세션 생성
 
@@ -44,5 +45,5 @@
 ## 보안 원칙
 
 - Stripe secret, webhook secret은 플랫폼 서버에서만 사용한다.
-- 제품은 raw BYOK 값을 저장하거나 재노출하지 않는다.
+- 제품은 크레딧 원장과 결제 비밀값을 직접 관리하지 않는다.
 - 브라우저 번들에는 공개 가능 값만 전달한다.

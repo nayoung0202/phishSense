@@ -12,7 +12,7 @@
 - `docs/api/tenant-api.md`
 - `docs/architecture/platform_api_handoff.md`
 - 멤버 초대 기능만 따로 구현하는 경우: `docs/integration/member-invite-handoff.md`
-- 설정/구독/크래딧/BYOK 범위: `docs/product/settings-hub-member-invites-billing-credits-byok-prd.md`
+- 설정/구독/크래딧 범위: `docs/product/settings-hub-member-invites-billing-credits-byok-prd.md`
 
 ## 인증 규칙
 

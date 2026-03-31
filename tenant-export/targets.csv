@@ -1,0 +1,4 @@
+id,name,email,department,tags,status,created_at,tenant_id
+34e6a2c4-7d93-4ae4-86ee-fc4d212eb8c9,주나영,nayeong.ju@evriz.co.kr,"개발부, 개발부 > 2팀",,active,2026-02-09 09:04:03.022,tenant-local-001
+b7b03441-96a4-42a8-90b5-e39a69b6412c,허성현,seonghyeon.heo@evriz.co.kr,"개발부, 개발부 > 2팀",,active,2026-02-10 02:05:15.599,tenant-local-001
+514b2891-dc4e-4497-bd5b-394538f15aec,주나영2,na9173@naver.com,개발부,{},active,2026-02-09 09:07:21.673,tenant-local-001

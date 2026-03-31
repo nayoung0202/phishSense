@@ -1,0 +1,2 @@
+id,name,host,port,secure,security_mode,username,password_enc,tls_verify,rate_limit_per_min,allowed_domains_json,is_active,last_tested_at,last_test_status,last_test_error,created_at,updated_at,tenant_id
+753ae1a9-e744-4437-846f-5c343cd1e6c5,evriz_smtp,smtp.fastmail.com,587,f,STARTTLS,nayeong.ju@evriz.co.kr,5247114b1084ab19776b24a3:e1abeac40eb9c0c4459e4247969190f0:0023285a5c3e91ef64ee21eda21af1ca,t,60,[],t,2026-03-24 05:35:23.422,success,,2026-03-24 05:34:22.526,2026-03-24 05:35:23.422,tenant-local-001

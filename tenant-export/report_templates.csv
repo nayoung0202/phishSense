@@ -1,0 +1,2 @@
+id,name,version,file_key,is_active,created_at,updated_at,tenant_id
+f332b29f-c4cd-40b6-ae96-648b18bc1a76,기본 보고서 템플릿,v3,reports/templates/f332b29f-c4cd-40b6-ae96-648b18bc1a76/v3/template.docx,t,2026-02-05 15:23:44.301,2026-02-05 15:23:44.301,tenant-local-001
