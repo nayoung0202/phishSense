@@ -5,6 +5,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import nodemailer, { type SendMailOptions, type Transporter } from "nodemailer";
 import { getSmtpConfigByIdForTenant } from "../dao/smtpDao";
 import { buildLandingUrl, buildOpenPixelUrl } from "../lib/trainingLink";
+import { getTenantPublicBaseUrl } from "../lib/tenantDomain";
 import { stripHtml } from "./projectsShared";
 import { enforceBlackTextForSend } from "./enforceBlackTextForSend";
 import {
@@ -360,8 +361,9 @@ const processJob = async (claimedJob: ClaimedJob) => {
         continue;
       }
 
-      const landingUrl = buildLandingUrl(trackingToken);
-      const openPixelUrl = buildOpenPixelUrl(trackingToken);
+      const publicBaseUrl = await getTenantPublicBaseUrl(tenantId);
+      const landingUrl = buildLandingUrl(trackingToken, { baseUrl: publicBaseUrl });
+      const openPixelUrl = buildOpenPixelUrl(trackingToken, { baseUrl: publicBaseUrl });
       const { html: htmlBodyRaw } = buildMailHtml(template, landingUrl, openPixelUrl);
       const htmlBody = enforceBlackTextForSend(htmlBodyRaw);
       const plainText = stripHtml(htmlBody);

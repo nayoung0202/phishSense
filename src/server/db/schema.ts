@@ -64,6 +64,21 @@ export const tenantAiKeysTable = pgTable(
   }),
 );
 
+export const tenantDomainsTable = pgTable(
+  "tenant_domains",
+  {
+    tenantId: text("tenant_id").primaryKey(),
+    slug: text("slug").notNull(),
+    fqdn: text("fqdn").notNull(),
+    createdAt: timestampColumn("created_at").defaultNow(),
+    updatedAt: timestampColumn("updated_at").defaultNow(),
+  },
+  (table) => ({
+    slugUnique: uniqueIndex("tenant_domains_slug_idx").on(table.slug),
+    fqdnUnique: uniqueIndex("tenant_domains_fqdn_idx").on(table.fqdn),
+  }),
+);
+
 export const smtpAccountsTable = pgTable(
   "smtp_accounts",
   {
@@ -133,3 +148,5 @@ export type NewPlatformEntitlementRow = typeof platformEntitlements.$inferInsert
 export type PlatformEntitlementEventRow = typeof platformEntitlementEvents.$inferSelect;
 export type TenantAiKeyRow = typeof tenantAiKeysTable.$inferSelect;
 export type NewTenantAiKeyRow = typeof tenantAiKeysTable.$inferInsert;
+export type TenantDomainRow = typeof tenantDomainsTable.$inferSelect;
+export type NewTenantDomainRow = typeof tenantDomainsTable.$inferInsert;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { normalizeTrainingUrlPlaceholders } from "@shared/templateTokens";
 import { neutralizePreviewModalHtml } from "@/lib/templatePreview";
 import { buildHtmlErrorResponse, HTML_RESPONSE_SECURITY_HEADERS } from "@/server/lib/htmlErrorPage";
+import { getPublicOriginFromRequest } from "@/server/lib/tenantDomain";
 import {
   buildSubmitFormUrl,
   buildTrainingLinkUrl,
@@ -33,7 +34,7 @@ const buildMissingLandingResponse = (message: string) =>
     label: "Phishing Landing",
   });
 
-export async function GET(_request: Request, { params }: RouteContext) {
+export async function GET(request: Request, { params }: RouteContext) {
   try {
     const { token } = await params;
     const normalized = token?.trim();
@@ -47,13 +48,14 @@ export async function GET(_request: Request, { params }: RouteContext) {
     }
 
     const { tenantId, projectTarget, project, template } = context;
+    const publicOrigin = getPublicOriginFromRequest(request);
     const maliciousHtml = template.maliciousPageContent?.trim() ?? "";
     const isFallback = maliciousHtml.length === 0;
     const baseHtml = normalizeTrainingUrlPlaceholders(
       neutralizePreviewModalHtml(isFallback ? template.body || "" : maliciousHtml),
     );
-    const trainingUrl = buildTrainingLinkUrl(normalized);
-    const submitUrl = buildSubmitFormUrl(normalized);
+    const trainingUrl = buildTrainingLinkUrl(normalized, { baseUrl: publicOrigin });
+    const submitUrl = buildSubmitFormUrl(normalized, { baseUrl: publicOrigin });
     const hasTrainingToken = trainingTokenMatcher.test(baseHtml);
     const hasSubmitToken = submitTokenMatcher.test(baseHtml);
     const hasFormTag = formTagMatcher.test(baseHtml);

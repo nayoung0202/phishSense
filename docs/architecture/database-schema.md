@@ -42,6 +42,7 @@
 | 테이블 | 역할 | 핵심 필드 |
 | --- | --- | --- |
 | `smtp_accounts` | 테넌트별 다건 발송 설정 | `tenant_id`, `name`, `host`, `security_mode`, `username`, `password_enc`, `allowed_domains_json`, `is_active` |
+| `tenant_domains` | 테넌트별 공개 링크 발급 도메인 | `tenant_id`, `slug`, `fqdn`, 생성/수정 시각 |
 
 ### 예비/레거시
 
@@ -77,6 +78,12 @@
 - `smtp_accounts.password_enc`: AES-256-GCM 기반 암호문
 - `smtp_accounts.allowed_domains_json`: 프로젝트 발신 이메일과 SMTP 테스트 발신 이메일에 적용하는 허용 발신 도메인 목록
 - `smtp_accounts.is_active`: 테넌트의 현재 발송 기준 SMTP 계정 여부
+
+### 공개 도메인
+
+- `tenant_domains.tenant_id`: 발급 도메인 소유 tenant 식별자
+- `tenant_domains.slug`: one-label 공개 서브도메인 slug
+- `tenant_domains.fqdn`: 실제 공개 링크 host (`slug.base-domain`)
 
 ## 상태값 요약
 

@@ -7,6 +7,7 @@ import {
   buildLandingUrl,
   buildOpenPixelUrl,
 } from "@/server/lib/trainingLink";
+import { getTenantPublicBaseUrl } from "@/server/lib/tenantDomain";
 import {
   NODEMAILER_VERSION,
   buildTestEmailHtml,
@@ -159,6 +160,7 @@ export async function POST(request: NextRequest) {
 
     let htmlBody = template.body ?? "";
     if (project) {
+      const publicBaseUrl = await getTenantPublicBaseUrl(tenantId);
       const recipientEmail = payload.recipient.trim();
       let target = await findTargetByEmailInTenant(tenantId, recipientEmail);
       if (!target) {
@@ -182,8 +184,8 @@ export async function POST(request: NextRequest) {
       const trackingToken = projectTarget.trackingToken ?? "";
       htmlBody = buildMailHtml(
         template,
-        buildLandingUrl(trackingToken),
-        buildOpenPixelUrl(trackingToken),
+        buildLandingUrl(trackingToken, { baseUrl: publicBaseUrl }),
+        buildOpenPixelUrl(trackingToken, { baseUrl: publicBaseUrl }),
       ).html;
     }
 

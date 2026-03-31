@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildHtmlErrorResponse, HTML_RESPONSE_SECURITY_HEADERS } from "@/server/lib/htmlErrorPage";
+import { getPublicOriginFromRequest } from "@/server/lib/tenantDomain";
 import { buildPhishingLinkUrl, buildSubmitFormUrl } from "@/server/lib/trainingLink";
 import {
   getPublicTrainingContextByTrackingToken,
@@ -31,9 +32,10 @@ const handleTrainingRequest = async (request: NextRequest, { params }: RouteCont
       return buildMissingTrainingResponse("잘못된 주소이거나 더 이상 유효하지 않은 훈련 안내 링크입니다.");
     }
 
+    const publicOrigin = getPublicOriginFromRequest(request);
     const flowToken = request.cookies.get("ps_flow_token")?.value ?? "";
     if (flowToken !== normalized) {
-      return NextResponse.redirect(buildPhishingLinkUrl(normalized), 302);
+      return NextResponse.redirect(buildPhishingLinkUrl(normalized, { baseUrl: publicOrigin }), 302);
     }
 
     if (request.method === "POST") {
@@ -73,7 +75,7 @@ const handleTrainingRequest = async (request: NextRequest, { params }: RouteCont
       });
     }
 
-    const submitUrl = buildSubmitFormUrl(normalized);
+    const submitUrl = buildSubmitFormUrl(normalized, { baseUrl: publicOrigin });
     const renderedContent = (trainingPage.content ?? "").replace(submitTokenReplacer, submitUrl);
     const response = new NextResponse(renderedContent, {
       status: 200,

@@ -62,6 +62,7 @@ npm run worker:send
 ### 애플리케이션 기본값
 
 - `APP_BASE_URL`
+- `TENANT_DOMAIN_BASE`
 - `DATABASE_URL`
 - `REPORT_PYTHON_BIN` (선택, 준비된 Python/venv 경로를 고정할 때)
 
@@ -95,6 +96,13 @@ npm run worker:send
 - `smtp_accounts.allowed_domains_json`은 프로젝트 발신 이메일과 SMTP 테스트 발신 이메일의 허용 발신 도메인 정책으로 사용하며, 등록 도메인의 하위 도메인도 함께 허용합니다.
 - 실제 프로젝트 발신자 이름/이메일은 프로젝트 설정값을 우선 사용하고, 없을 때만 `MAIL_FROM_NAME`, `MAIL_FROM_EMAIL`을 fallback 합니다.
 - 관리자 SMTP 테스트 발송은 테스트 시점에 발신 이메일과 수신 이메일을 직접 입력하며, 발신 이메일은 선택한 발송 설정의 허용 발신 도메인 또는 그 하위 도메인과 일치해야 합니다.
+
+### 공개 링크 도메인
+
+- `TENANT_DOMAIN_BASE`는 tenant 발급 도메인의 suffix입니다. 예: `phishsense.cloud`
+- DNS에서 `*.TENANT_DOMAIN_BASE`가 앱 ingress/IP를 가리켜야 합니다.
+- NGINX/프록시는 wildcard host를 앱으로 전달하고 `Host`, `X-Forwarded-Host`, `X-Forwarded-Proto`를 유지해야 합니다.
+- v1은 `*.TENANT_DOMAIN_BASE` 와일드카드만 공식 지원하며, 고객사 커스텀 도메인은 별도 SSL/검증 전략 없이는 HTTPS 실사용이 불가합니다.
 
 ### 보고서 생성
 

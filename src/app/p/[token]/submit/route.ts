@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildHtmlErrorResponse } from "@/server/lib/htmlErrorPage";
+import { getPublicOriginFromRequest } from "@/server/lib/tenantDomain";
 import { buildSubmitUrl } from "@/server/lib/trainingLink";
 import {
   getPublicProjectContextByTrackingToken,
@@ -61,7 +62,8 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       }
     }
 
-    const response = NextResponse.redirect(buildSubmitUrl(normalized), 302);
+    const publicOrigin = getPublicOriginFromRequest(request);
+    const response = NextResponse.redirect(buildSubmitUrl(normalized, { baseUrl: publicOrigin }), 302);
     response.cookies.set("ps_flow_token", normalized, {
       httpOnly: true,
       sameSite: "lax",

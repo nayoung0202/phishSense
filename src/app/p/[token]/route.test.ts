@@ -118,8 +118,8 @@ describe("GET /p/[trackingToken]", () => {
     });
     const html = await response.text();
 
-    expect(html).toContain('action="http://localhost:3000/t/track-1"');
-    expect(html).toContain('href="http://localhost:3000/t/track-1"');
+    expect(html).toContain('action="http://localhost/t/track-1"');
+    expect(html).toContain('href="http://localhost/t/track-1"');
     expect(html).not.toContain("tranning_url");
   });
 });

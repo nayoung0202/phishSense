@@ -66,8 +66,9 @@ export const koMessages = {
   "auth.firstTime": "처음 이용하시나요?",
   "auth.startFree": "무료로 시작하기",
   "settings.title": "설정",
-  "settings.subtitle": "계정, 멤버, 구독, 크래딧, API 키를 관리합니다.",
+  "settings.subtitle": "언어, 도메인, 멤버, 구독, 크래딧, API 키를 관리합니다.",
   "settings.general": "일반",
+  "settings.domain": "도메인",
   "settings.members": "멤버",
   "settings.subscription": "구독",
   "settings.credits": "크래딧",
@@ -77,6 +78,36 @@ export const koMessages = {
     "선택한 언어를 서비스 전반 공통 UI와 주요 업무 화면에 적용합니다.",
   "settings.general.localeLabel": "표시 언어",
   "settings.general.saved": "언어 설정을 저장했습니다.",
+  "settings.domain.title": "트래킹 URL 도메인",
+  "settings.domain.description":
+    "메일 본문에 삽입되는 피싱 랜딩, 훈련 안내, 오픈 픽셀 URL 전용 서브도메인을 관리합니다.",
+  "settings.domain.requireAdmin":
+    "도메인 설정은 OWNER 또는 ADMIN 권한에서만 확인할 수 있습니다.",
+  "settings.domain.requireOwner":
+    "도메인 발급과 변경은 OWNER 권한에서만 가능합니다.",
+  "settings.domain.issuedDomain": "발급 도메인",
+  "settings.domain.current": "현재 발급값",
+  "settings.domain.none": "아직 발급된 도메인이 없습니다.",
+  "settings.domain.trackingOnly":
+    "이 도메인은 메일 본문에 삽입되는 트래킹 URL에만 사용됩니다. 로그인/설정 화면 도메인은 바뀌지 않습니다.",
+  "settings.domain.saveTitle": "slug 발급 또는 변경",
+  "settings.domain.slug": "slug",
+  "settings.domain.slugDescription":
+    "소문자, 숫자, 하이픈만 허용됩니다. 점(.) 없이 one-label slug만 입력하세요.",
+  "settings.domain.slugPlaceholder": "예: acme-security",
+  "settings.domain.preview": "미리보기",
+  "settings.domain.saved": "도메인 설정을 저장했습니다.",
+  "settings.domain.copyIssuedDomain": "도메인 복사",
+  "settings.domain.cnameTitle": "CNAME 등록 가이드",
+  "settings.domain.cnameDescription":
+    "고객사 DNS에서 별도 서브도메인을 운영할 때 참고할 값입니다.",
+  "settings.domain.cnameType": "레코드 타입",
+  "settings.domain.cnameHost": "호스트 예시",
+  "settings.domain.cnameValue": "값",
+  "settings.domain.copyCnameValue": "CNAME 값 복사",
+  "settings.domain.cnameTlsNote":
+    "현재 범위는 `*.phishsense.cloud` 와일드카드 SSL만 전제합니다. 고객사 커스텀 도메인을 HTTPS로 실사용하려면 별도 인증서와 검증 구성이 추가로 필요합니다.",
+  "settings.domain.trackingExamples": "삽입 URL 예시",
   "settings.members.title": "멤버 초대",
   "settings.members.description":
     "현재 tenant 멤버를 확인하고 새 멤버 초대 링크를 생성합니다.",

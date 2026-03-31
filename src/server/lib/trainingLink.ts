@@ -6,6 +6,14 @@ const DEFAULT_APP_URL = "http://localhost:3000";
 
 const normalizeAppUrl = (value: string) => value.replace(/\/+$/, "");
 
+const resolveBaseUrl = (value?: string | null) => {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  if (normalized.length > 0) {
+    return normalizeAppUrl(normalized);
+  }
+  return getAppBaseUrl();
+};
+
 export const getAppBaseUrl = () => {
   const raw =
     process.env.APP_BASE_URL ??
@@ -16,21 +24,35 @@ export const getAppBaseUrl = () => {
   return normalizeAppUrl(trimmed.length > 0 ? trimmed : DEFAULT_APP_URL);
 };
 
-export const buildLandingUrl = (token: string) =>
-  `${getAppBaseUrl()}/p/${encodeURIComponent(token)}`;
+export const buildLandingUrl = (
+  token: string,
+  options?: { baseUrl?: string | null },
+) => `${resolveBaseUrl(options?.baseUrl)}/p/${encodeURIComponent(token)}`;
 
-export const buildSubmitUrl = (token: string) =>
-  `${getAppBaseUrl()}/t/${encodeURIComponent(token)}`;
+export const buildSubmitUrl = (
+  token: string,
+  options?: { baseUrl?: string | null },
+) => `${resolveBaseUrl(options?.baseUrl)}/t/${encodeURIComponent(token)}`;
 
-export const buildSubmitFormUrl = (token: string) =>
-  `${getAppBaseUrl()}/p/${encodeURIComponent(token)}/submit`;
+export const buildSubmitFormUrl = (
+  token: string,
+  options?: { baseUrl?: string | null },
+) => `${resolveBaseUrl(options?.baseUrl)}/p/${encodeURIComponent(token)}/submit`;
 
-export const buildOpenPixelUrl = (token: string) =>
-  `${getAppBaseUrl()}/o/${encodeURIComponent(token)}`;
+export const buildOpenPixelUrl = (
+  token: string,
+  options?: { baseUrl?: string | null },
+) => `${resolveBaseUrl(options?.baseUrl)}/o/${encodeURIComponent(token)}`;
 
-export const buildTrainingLinkUrl = (token: string) => buildSubmitUrl(token);
+export const buildTrainingLinkUrl = (
+  token: string,
+  options?: { baseUrl?: string | null },
+) => buildSubmitUrl(token, options);
 
-export const buildPhishingLinkUrl = (token: string) => buildLandingUrl(token);
+export const buildPhishingLinkUrl = (
+  token: string,
+  options?: { baseUrl?: string | null },
+) => buildLandingUrl(token, options);
 
 export const generateTrainingLinkToken = () => randomBytes(16).toString("hex");
 

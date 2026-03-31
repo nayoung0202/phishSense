@@ -15,6 +15,7 @@
   - `설정`, `로그아웃` 액션
 - 설정 라우트
   - `/settings/general`
+  - `/settings/domain`
   - `/settings/members`
   - `/settings/subscription`
   - `/settings/credits`
@@ -49,6 +50,7 @@
 
 - 계정 카드는 `/api/auth/session` 기준으로 이메일과 이름을 표시한다.
 - `/settings` 경로에서는 기존 앱 사이드바 메뉴 대신 설정 섹션 메뉴를 같은 위치에 노출한다.
+- `설정 > 도메인`은 tenant 공개 링크용 발급 도메인을 관리하며, `OWNER/ADMIN`만 볼 수 있고 실제 발급/변경은 `OWNER`만 수행한다.
 - locale source-of-truth는 `ps_locale` 쿠키다.
 - `ko`, `en`, `ja` locale은 설정 화면뿐 아니라 공통 셸과 주요 업무 화면에도 같은 기준으로 반영한다.
 
@@ -83,12 +85,19 @@
 - 현재 범위에서는 BYOK를 제공하지 않는다.
 - route 계약은 추후 플랫폼 중앙관리 또는 확장 정책으로 전환할 수 있도록 tenant-scoped BFF 형태를 유지한다.
 
+### 도메인
+
+- tenant 공개 링크는 제품 로컬 DB의 발급 도메인 1개를 우선 사용한다.
+- 발급 도메인 형식은 `slug.TENANT_DOMAIN_BASE`이며 slug는 one-label 규칙만 허용한다.
+- 현재 범위의 CNAME 안내는 고객사 DNS 운영 참고용이며, 커스텀 도메인 자동 검증/SSL 발급은 제외한다.
+
 ## 제품 라우트와 BFF
 
 ### 제품 라우트
 
 - `/settings`
 - `/settings/general`
+- `/settings/domain`
 - `/settings/members`
 - `/settings/subscription`
 - `/settings/credits`
@@ -97,6 +106,8 @@
 
 ### 제품 BFF
 
+- `GET /api/settings/domain`
+- `POST /api/settings/domain`
 - `GET /api/platform/tenants/:tenantId/members`
 - `POST /api/platform/tenants/:tenantId/invites`
 - `POST /api/platform/tenant-invites/:token/accept`
@@ -112,6 +123,7 @@
 ## 권한
 
 - `일반`: 로그인 사용자
+- `도메인`: `OWNER/ADMIN` 조회, `OWNER` 변경
 - `멤버`: tenant member 조회 가능, `OWNER/ADMIN`만 초대 가능
 - `구독`: `OWNER`
 - `크레딧`: `OWNER/ADMIN`

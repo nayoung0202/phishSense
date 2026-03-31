@@ -70,8 +70,9 @@ export const jaMessages: TranslationMessages = {
   "auth.startFree": "無料で始める",
   "settings.title": "設定",
   "settings.subtitle":
-    "アカウント、メンバー、サブスクリプション、クレジット、APIキーを管理します。",
+    "言語、ドメイン、メンバー、サブスクリプション、クレジット、APIキーを管理します。",
   "settings.general": "一般",
+  "settings.domain": "ドメイン",
   "settings.members": "メンバー",
   "settings.subscription": "サブスクリプション",
   "settings.credits": "クレジット",
@@ -81,6 +82,36 @@ export const jaMessages: TranslationMessages = {
     "選択した言語を共通UIと主要な業務画面全体に適用します。",
   "settings.general.localeLabel": "表示言語",
   "settings.general.saved": "言語設定を保存しました。",
+  "settings.domain.title": "トラッキングURLドメイン",
+  "settings.domain.description":
+    "送信メール本文に挿入されるフィッシング、訓練案内、オープンピクセルURL専用サブドメインを管理します。",
+  "settings.domain.requireAdmin":
+    "ドメイン設定はOWNERまたはADMIN権限でのみ確認できます。",
+  "settings.domain.requireOwner":
+    "ドメイン発行と変更はOWNER権限でのみ可能です。",
+  "settings.domain.issuedDomain": "発行ドメイン",
+  "settings.domain.current": "現在の値",
+  "settings.domain.none": "まだ発行されたドメインがありません。",
+  "settings.domain.trackingOnly":
+    "このサブドメインはメール本文に挿入されるトラッキングURL専用です。認証済みアプリのドメインは変更されません。",
+  "settings.domain.saveTitle": "slugを発行または変更",
+  "settings.domain.slug": "slug",
+  "settings.domain.slugDescription":
+    "小文字、数字、ハイフンのみ使用できます。ドットなしのone-label slugを入力してください。",
+  "settings.domain.slugPlaceholder": "例: acme-security",
+  "settings.domain.preview": "プレビュー",
+  "settings.domain.saved": "ドメイン設定を保存しました。",
+  "settings.domain.copyIssuedDomain": "ドメインをコピー",
+  "settings.domain.cnameTitle": "CNAME登録ガイド",
+  "settings.domain.cnameDescription":
+    "顧客DNSで別サブドメインを運用する場合の参考値です。",
+  "settings.domain.cnameType": "レコード種別",
+  "settings.domain.cnameHost": "ホスト例",
+  "settings.domain.cnameValue": "値",
+  "settings.domain.copyCnameValue": "CNAME値をコピー",
+  "settings.domain.cnameTlsNote":
+    "現在の範囲は `*.phishsense.cloud` のワイルドカードSSLのみを前提にしています。顧客独自ドメインをHTTPSで実運用するには別途証明書と検証構成が必要です。",
+  "settings.domain.trackingExamples": "挿入URLの例",
   "settings.members.title": "メンバー招待",
   "settings.members.description":
     "現在のメンバーを確認し、この tenant の招待リンクを作成します。",

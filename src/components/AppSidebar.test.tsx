@@ -87,6 +87,7 @@ describe("AppSidebar", () => {
 
     expect(screen.getByRole("link", { name: "common.back" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: /settings.general/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /settings.domain/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /settings.members/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /settings.subscription/i })).toBeInTheDocument();
     expect(screen.queryByText("nav.workspace")).not.toBeInTheDocument();
@@ -108,6 +109,7 @@ describe("AppSidebar", () => {
 
     expect(screen.getByRole("link", { name: /settings.general/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /settings.members/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /settings.domain/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /settings.subscription/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /settings.credits/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /settings.apiKeys/i })).not.toBeInTheDocument();

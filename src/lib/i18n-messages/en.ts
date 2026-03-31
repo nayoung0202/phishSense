@@ -70,8 +70,9 @@ export const enMessages: TranslationMessages = {
   "auth.startFree": "Start for free",
   "settings.title": "Settings",
   "settings.subtitle":
-    "Manage account, members, subscription, credits, and API keys.",
+    "Manage language, domains, members, subscription, credits, and API keys.",
   "settings.general": "General",
+  "settings.domain": "Domain",
   "settings.members": "Members",
   "settings.subscription": "Subscription",
   "settings.credits": "Credits",
@@ -81,6 +82,36 @@ export const enMessages: TranslationMessages = {
     "Apply the selected language across the shared UI and primary product screens.",
   "settings.general.localeLabel": "Display language",
   "settings.general.saved": "Language preference saved.",
+  "settings.domain.title": "Tracking URL domain",
+  "settings.domain.description":
+    "Manage the subdomain used only for phishing landing, training, and open-pixel URLs injected into sent emails.",
+  "settings.domain.requireAdmin":
+    "Domain settings are only available to OWNER or ADMIN roles.",
+  "settings.domain.requireOwner":
+    "Only OWNER can issue or change the tracking domain.",
+  "settings.domain.issuedDomain": "Issued domain",
+  "settings.domain.current": "Current value",
+  "settings.domain.none": "No domain has been issued yet.",
+  "settings.domain.trackingOnly":
+    "This subdomain is used only for tracking URLs inserted into email bodies. It does not change the authenticated app domain.",
+  "settings.domain.saveTitle": "Issue or change slug",
+  "settings.domain.slug": "Slug",
+  "settings.domain.slugDescription":
+    "Use lowercase letters, numbers, and hyphens only. Enter a one-label slug without dots.",
+  "settings.domain.slugPlaceholder": "Example: acme-security",
+  "settings.domain.preview": "Preview",
+  "settings.domain.saved": "Domain settings saved.",
+  "settings.domain.copyIssuedDomain": "Copy domain",
+  "settings.domain.cnameTitle": "CNAME guide",
+  "settings.domain.cnameDescription":
+    "Use this as a reference when the customer operates a separate DNS subdomain.",
+  "settings.domain.cnameType": "Record type",
+  "settings.domain.cnameHost": "Host example",
+  "settings.domain.cnameValue": "Value",
+  "settings.domain.copyCnameValue": "Copy CNAME value",
+  "settings.domain.cnameTlsNote":
+    "The current scope assumes wildcard SSL only for `*.phishsense.cloud`. Customer-owned HTTPS domains need separate certificate and verification work.",
+  "settings.domain.trackingExamples": "Injected URL examples",
   "settings.members.title": "Member invites",
   "settings.members.description":
     "Review current members and create invite links for this tenant.",

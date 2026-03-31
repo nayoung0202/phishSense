@@ -2,6 +2,7 @@ import type { Route } from "next";
 import {
   Globe2,
   KeyRound,
+  Link2,
   Receipt,
   Sparkles,
   Users2,
@@ -14,7 +15,7 @@ const INTERNAL_PRODUCTION_SUBSCRIPTION_EMAIL_PATTERN =
 
 export type SettingsSidebarItem = {
   href: Route;
-  key: "general" | "members" | "subscription" | "credits" | "api-keys";
+  key: "general" | "domain" | "members" | "subscription" | "credits" | "api-keys";
   label: string;
   icon: LucideIcon;
 };
@@ -41,6 +42,7 @@ export function getSettingsSidebarItems(options: {
 }): SettingsSidebarItem[] {
   const { t, role, isLoading, billingUiEnabled, byokUiEnabled, accountEmail } = options;
   const canManageBilling = isLoading || role === "OWNER";
+  const canViewDomain = isLoading || role === "OWNER" || role === "ADMIN";
   const canViewCredits = isLoading || role === "OWNER" || role === "ADMIN";
   const canManageAiKeys = isLoading || role === "OWNER";
   const items: SettingsSidebarItem[] = [
@@ -49,6 +51,12 @@ export function getSettingsSidebarItems(options: {
       key: "general",
       label: t("settings.general"),
       icon: Globe2,
+    },
+    {
+      href: "/settings/domain" as Route,
+      key: "domain",
+      label: t("settings.domain"),
+      icon: Link2,
     },
     {
       href: "/settings/members" as Route,
@@ -87,6 +95,10 @@ export function getSettingsSidebarItems(options: {
       }
 
       return canAccessSubscriptionMenuInProduction(accountEmail);
+    }
+
+    if (item.key === "domain") {
+      return canViewDomain;
     }
 
     if (item.key === "credits") {
