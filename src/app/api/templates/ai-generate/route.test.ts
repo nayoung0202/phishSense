@@ -2,10 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generateTemplateAiCandidatesMock = vi.hoisted(() => vi.fn());
 const executeWithAiCreditGateMock = vi.hoisted(() => vi.fn());
-const tenantAiKeysMock = vi.hoisted(() => ({
-  resolveTenantAiProviderKeys: vi.fn(),
-  markTenantAiKeyUsed: vi.fn(),
-}));
 
 vi.mock("@/server/services/templateAi", async () => {
   const actual = await vi.importActual<typeof import("@/server/services/templateAi")>(
@@ -22,17 +18,29 @@ vi.mock("@/server/platform/aiCredits", async () => {
   return {
     AiCreditGateError: class AiCreditGateError extends Error {
       status: number;
+      rechargeUrl: string | null;
+      requiredCredits: number | null;
+      remainingCredits: number | null;
 
-      constructor(status: number, message: string) {
+      constructor(
+        status: number,
+        message: string,
+        options?: {
+          rechargeUrl?: string | null;
+          requiredCredits?: number | null;
+          remainingCredits?: number | null;
+        },
+      ) {
         super(message);
         this.status = status;
+        this.rechargeUrl = options?.rechargeUrl ?? null;
+        this.requiredCredits = options?.requiredCredits ?? null;
+        this.remainingCredits = options?.remainingCredits ?? null;
       }
     },
     executeWithAiCreditGate: executeWithAiCreditGateMock,
   };
 });
-
-vi.mock("@/server/services/tenantAiKeys", () => tenantAiKeysMock);
 
 import { TemplateAiServiceError } from "@/server/services/templateAi";
 import { POST } from "./route";
@@ -53,12 +61,6 @@ describe("POST /api/templates/ai-generate", () => {
   beforeEach(() => {
     generateTemplateAiCandidatesMock.mockReset();
     executeWithAiCreditGateMock.mockReset();
-    tenantAiKeysMock.resolveTenantAiProviderKeys.mockReset();
-    tenantAiKeysMock.markTenantAiKeyUsed.mockReset();
-    tenantAiKeysMock.resolveTenantAiProviderKeys.mockResolvedValue({
-      hasAny: false,
-      preferredKeyId: null,
-    });
     executeWithAiCreditGateMock.mockImplementation(async ({ action }) =>
       action({ tenantId: "tenant-local-001" }),
     );
@@ -111,7 +113,6 @@ describe("POST /api/templates/ai-generate", () => {
         preservedCandidates: [{ id: "keep-1", subject: "기존 후보 제목" }],
         usageContext: "standard",
       }),
-      undefined,
     );
   });
 
@@ -158,7 +159,6 @@ describe("POST /api/templates/ai-generate", () => {
         customTopic: "사내 행사 안내",
         usageContext: "standard",
       }),
-      undefined,
     );
   });
 
@@ -200,7 +200,6 @@ describe("POST /api/templates/ai-generate", () => {
       expect.objectContaining({
         usageContext: "experience",
       }),
-      undefined,
     );
   });
 
@@ -269,30 +268,21 @@ describe("POST /api/templates/ai-generate", () => {
           base64Data: expect.any(String),
         }),
       }),
-      undefined,
     );
   });
 
-  it("활성 tenant BYOK가 있으면 서비스에 providerApiKeys를 전달한다", async () => {
-    tenantAiKeysMock.resolveTenantAiProviderKeys.mockResolvedValue({
-      hasAny: true,
-      preferredKeyId: "key-1",
-      anthropicApiKey: "anthropic-key",
-      openAiApiKey: undefined,
-      geminiApiKey: undefined,
-    });
-    generateTemplateAiCandidatesMock.mockResolvedValue({
-      candidates: [
+  it("크레딧 부족 응답이면 충전 URL과 잔액 정보를 함께 반환한다", async () => {
+    executeWithAiCreditGateMock.mockRejectedValue(
+      new (await import("@/server/platform/aiCredits")).AiCreditGateError(
+        402,
+        "크레딧이 부족합니다.",
         {
-          id: "candidate-1",
-          subject: "보안 점검 안내",
-          body: '<a href="{{LANDING_URL}}">확인</a>',
-          maliciousPageContent:
-            '<form action="{{TRAINING_URL}}"><button type="submit">제출</button></form>',
-          summary: "후보",
+          rechargeUrl: "mailto:sales@evriz.co.kr",
+          requiredCredits: 2,
+          remainingCredits: 0,
         },
-      ],
-    });
+      ),
+    );
 
     const response = await POST(
       new Request("http://localhost/api/templates/ai-generate", {
@@ -306,22 +296,15 @@ describe("POST /api/templates/ai-generate", () => {
         }),
       }),
     );
+    const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(tenantAiKeysMock.markTenantAiKeyUsed).toHaveBeenCalledWith(
-      "tenant-local-001",
-      "key-1",
-    );
-    expect(generateTemplateAiCandidatesMock).toHaveBeenCalledWith(
-      expect.any(Object),
-      {
-        providerApiKeys: {
-          anthropicApiKey: "anthropic-key",
-          openAiApiKey: undefined,
-          geminiApiKey: undefined,
-        },
-      },
-    );
+    expect(response.status).toBe(402);
+    expect(body).toEqual({
+      error: "크레딧이 부족합니다.",
+      rechargeUrl: "mailto:sales@evriz.co.kr",
+      requiredCredits: 2,
+      remainingCredits: 0,
+    });
   });
 
   it("기타 주제를 선택하고 직접 입력이 없으면 400을 반환한다", async () => {

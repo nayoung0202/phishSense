@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import {
@@ -29,12 +29,34 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/components/I18nProvider";
+import { syncTenantCreditsAfterCharge } from "@/lib/tenantCreditsRealtime";
 
 type GenerateResponse = {
   candidates: TrainingPageAiCandidate[];
   usage?: {
     estimatedCredits: number;
   };
+};
+
+type ApplyResponse = {
+  ok: boolean;
+  tenantId?: string | null;
+  charged: boolean;
+  chargedCredits?: number | null;
+  remainingCredits?: number | null;
+};
+
+type GenerateErrorPayload = {
+  error?: string;
+  message?: string;
+  rechargeUrl?: string | null;
+  requiredCredits?: number | null;
+  remainingCredits?: number | null;
+};
+
+type GenerateRequestError = Error & {
+  status?: number;
+  body?: GenerateErrorPayload | null;
 };
 
 type Props = {
@@ -55,29 +77,47 @@ const candidateDialogContentClass =
   "w-[min(94vw,1120px)] max-w-[1120px] h-[88vh] overflow-hidden p-5";
 const focusedDialogContentClass = "max-w-5xl h-[88vh] overflow-hidden";
 
-const getGenerateErrorMessage = (error: unknown, fallbackMessage: string) => {
+const getGenerateErrorDetails = (
+  error: unknown,
+  fallbackMessage: string,
+): { message: string; rechargeUrl: string | null } => {
   if (!(error instanceof Error)) {
-    return fallbackMessage;
+    return {
+      message: fallbackMessage,
+      rechargeUrl: null,
+    };
+  }
+
+  const typedError = error as GenerateRequestError;
+  if (typedError.body) {
+    return {
+      message: typedError.body.error ?? typedError.body.message ?? fallbackMessage,
+      rechargeUrl: typedError.body.rechargeUrl ?? null,
+    };
   }
 
   const matchedBody = error.message.match(/^\d{3}:\s*([\s\S]+)$/)?.[1]?.trim();
   const rawMessage = matchedBody ?? error.message;
 
   try {
-    const parsed = JSON.parse(rawMessage) as {
-      error?: string;
-      message?: string;
-    };
+    const parsed = JSON.parse(rawMessage) as GenerateErrorPayload;
 
-    return parsed.error ?? parsed.message ?? rawMessage;
+    return {
+      message: parsed.error ?? parsed.message ?? rawMessage,
+      rechargeUrl: parsed.rechargeUrl ?? null,
+    };
   } catch {
-    return rawMessage;
+    return {
+      message: rawMessage,
+      rechargeUrl: null,
+    };
   }
 };
 
 export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
   const { t } = useI18n();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<DialogStep>("options");
   const [tone, setTone] = useState<(typeof templateAiToneOptions)[number]>(DEFAULT_TONE);
   const [prompt, setPrompt] = useState("");
@@ -160,8 +200,21 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
       });
 
       if (!response.ok) {
-        const text = (await response.text()) || response.statusText;
-        throw new Error(`${response.status}: ${text}`);
+        const rawText = (await response.text()) || response.statusText;
+        let parsedBody: GenerateErrorPayload | null = null;
+
+        try {
+          parsedBody = rawText ? (JSON.parse(rawText) as GenerateErrorPayload) : null;
+        } catch {
+          parsedBody = null;
+        }
+
+        const requestError = new Error(
+          parsedBody?.error ?? parsedBody?.message ?? rawText,
+        ) as GenerateRequestError;
+        requestError.status = response.status;
+        requestError.body = parsedBody;
+        throw requestError;
       }
 
       return (await response.json()) as GenerateResponse;
@@ -175,6 +228,62 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
       setFocusedCandidate(null);
     },
   });
+
+  const applyMutation = useMutation({
+    mutationFn: async (candidate: TrainingPageAiCandidate) => {
+      const response = await fetch("/api/training-pages/ai-apply", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          usageContext: "standard",
+          candidateId: candidate.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const rawText = (await response.text()) || response.statusText;
+        let parsedBody: GenerateErrorPayload | null = null;
+
+        try {
+          parsedBody = rawText ? (JSON.parse(rawText) as GenerateErrorPayload) : null;
+        } catch {
+          parsedBody = null;
+        }
+
+        const requestError = new Error(
+          parsedBody?.error ?? parsedBody?.message ?? rawText,
+        ) as GenerateRequestError;
+        requestError.status = response.status;
+        requestError.body = parsedBody;
+        throw requestError;
+      }
+
+      return {
+        candidate,
+        chargeResult: (await response.json()) as ApplyResponse,
+      };
+    },
+    onSuccess: ({ candidate, chargeResult }) => {
+      void syncTenantCreditsAfterCharge(queryClient, chargeResult);
+
+      sessionStorage.setItem(
+        TRAINING_PAGE_AI_DRAFT_SESSION_KEY,
+        JSON.stringify({
+          ...candidate,
+          source: "ai",
+          generatedAt: new Date().toISOString(),
+        }),
+      );
+
+      onOpenChange(false);
+      router.push("/training-pages/new?source=ai");
+    },
+  });
+
+  const isBusy = generateMutation.isPending || applyMutation.isPending;
 
   const handleReferenceAttachmentChange = (files: FileList | null) => {
     const nextFile = files?.[0] ?? null;
@@ -203,6 +312,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
 
   const handleGenerate = () => {
     if (attachmentError) return;
+    applyMutation.reset();
     setSelectedCandidateId(null);
     setFocusedCandidate(null);
     setPairPage(0);
@@ -210,6 +320,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
   };
 
   const handleBackToOptions = () => {
+    applyMutation.reset();
     setFocusedCandidate(null);
     setStep("options");
   };
@@ -220,6 +331,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
   };
 
   const handleRegenerateAll = () => {
+    applyMutation.reset();
     setSelectedCandidateId(null);
     setFocusedCandidate(null);
     generateMutation.mutate([]);
@@ -227,32 +339,37 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
 
   const handleRegenerate = () => {
     if (!selectedCandidate) return;
+    applyMutation.reset();
     setFocusedCandidate(null);
     generateMutation.mutate([selectedCandidate]);
   };
 
   const handleApply = () => {
     if (!selectedCandidate) return;
-
-    sessionStorage.setItem(
-      TRAINING_PAGE_AI_DRAFT_SESSION_KEY,
-      JSON.stringify({
-        ...selectedCandidate,
-        source: "ai",
-        generatedAt: new Date().toISOString(),
-      }),
-    );
-
-    onOpenChange(false);
-    router.push("/training-pages/new?source=ai");
+    applyMutation.mutate(selectedCandidate);
   };
 
   const renderError = () => {
-    if (!attachmentError && !generateMutation.error) return null;
+    if (!attachmentError && !generateMutation.error && !applyMutation.error) return null;
+    const requestError = applyMutation.error ?? generateMutation.error;
+    const errorDetails =
+      attachmentError || !requestError
+        ? null
+        : getGenerateErrorDetails(
+            requestError,
+            t("trainingPageAi.generateErrorFallback"),
+          );
 
     return (
-      <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-        {attachmentError ?? getGenerateErrorMessage(generateMutation.error, t("trainingPageAi.generateErrorFallback"))}
+      <div className="space-y-3 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+        <div>
+          {attachmentError ?? errorDetails?.message ?? t("trainingPageAi.generateErrorFallback")}
+        </div>
+        {errorDetails?.rechargeUrl ? (
+          <Button asChild size="sm" variant="outline">
+            <a href={errorDetails.rechargeUrl}>{t("settings.credits.recharge")}</a>
+          </Button>
+        ) : null}
       </div>
     );
   };
@@ -326,7 +443,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
         <div className="flex flex-col gap-2">
           <Button
             onClick={handleGenerate}
-            disabled={generateMutation.isPending || Boolean(attachmentError)}
+            disabled={isBusy || Boolean(attachmentError)}
           >
             {generateMutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -339,7 +456,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
             <Button
               variant="outline"
               onClick={handleReturnToCandidates}
-              disabled={generateMutation.isPending}
+              disabled={isBusy}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               {t("trainingPageAi.backToCandidates")}
@@ -366,7 +483,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
           <Button
             variant="outline"
             onClick={handleBackToOptions}
-            disabled={generateMutation.isPending}
+            disabled={isBusy}
             className="shrink-0"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -375,7 +492,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
           <Button
             variant="outline"
             onClick={handleRegenerateAll}
-            disabled={generateMutation.isPending}
+            disabled={isBusy}
             className="shrink-0"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -384,7 +501,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
           <Button
             variant="outline"
             onClick={handleRegenerate}
-            disabled={generateMutation.isPending || !selectedCandidate}
+            disabled={isBusy || !selectedCandidate}
             className="shrink-0"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -393,7 +510,7 @@ export function TrainingPageAiGenerateDialog({ open, onOpenChange }: Props) {
           <Button
             variant="secondary"
             onClick={handleApply}
-            disabled={!selectedCandidate || generateMutation.isPending}
+            disabled={!selectedCandidate || isBusy}
             className="shrink-0"
           >
             {t("trainingPageAi.applySelected")}

@@ -60,7 +60,7 @@
   "tenantId": "tenant-001",
   "productId": "PHISHSENSE",
   "entitlement": {
-    "planCode": "STANDARD",
+    "planCode": "BUSINESS",
     "status": "ACTIVE",
     "seatLimit": 50,
     "expiresAt": "2026-04-09T00:00:00Z",

@@ -149,53 +149,6 @@ export const platformPortalSessionResponseSchema = z.object({
   customerId: z.string().trim().min(1).nullable().optional(),
 });
 
-export const platformCreditPolicySchema = z.object({
-  featureKey: z.string().trim().min(1),
-  label: z.string().trim().min(1),
-  cost: z.number().int().nonnegative(),
-  usageContexts: z.array(z.string().trim().min(1)).default([]),
-});
-
-export const platformCreditEventSchema = z.object({
-  eventId: z.string().trim().min(1),
-  type: z.string().trim().min(1),
-  amount: z.number().int(),
-  description: z.string().trim().min(1),
-  createdAt: z.string().trim().min(1),
-});
-
-export const platformCreditsResponseSchema = z.object({
-  tenantId: z.string().trim().min(1),
-  productId: z.string().trim().min(1),
-  balance: z.number().int().nullable().optional(),
-  included: z.number().int().nullable().optional(),
-  pending: z.number().int().nullable().optional(),
-  byokAvailable: z.boolean().default(false),
-  activeAiKeys: z.number().int().nonnegative().default(0),
-  rechargeUrl: z.string().trim().url().nullable().optional(),
-  policies: z.array(platformCreditPolicySchema).default([]),
-  recentEvents: z.array(platformCreditEventSchema).default([]),
-});
-
-export const platformCreditAuthorizationRequestSchema = z.object({
-  featureKey: z.string().trim().min(1),
-  usageContext: z.string().trim().min(1),
-  quantity: z.number().int().positive().default(1),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-});
-
-export const platformCreditAuthorizationResponseSchema = z.object({
-  authorizationId: z.string().trim().min(1),
-  status: z.enum(["approved", "blocked"]),
-  featureKey: z.string().trim().min(1),
-  usageContext: z.string().trim().min(1),
-  cost: z.number().int().nonnegative(),
-  remainingCredits: z.number().int().nullable().optional(),
-  usesByok: z.boolean().default(false),
-  reasonCode: z.string().trim().min(1).nullable().optional(),
-  message: z.string().trim().min(1).nullable().optional(),
-});
-
 export const platformAiKeySchema = z.object({
   keyId: z.string().trim().min(1),
   provider: z.string().trim().min(1),
@@ -259,14 +212,6 @@ export type PlatformPortalSessionRequest = z.infer<
 >;
 export type PlatformPortalSessionResponse = z.infer<
   typeof platformPortalSessionResponseSchema
->;
-export type PlatformCreditsResponse = z.infer<typeof platformCreditsResponseSchema>;
-export type PlatformCreditPolicy = z.infer<typeof platformCreditPolicySchema>;
-export type PlatformCreditAuthorizationRequest = z.infer<
-  typeof platformCreditAuthorizationRequestSchema
->;
-export type PlatformCreditAuthorizationResponse = z.infer<
-  typeof platformCreditAuthorizationResponseSchema
 >;
 export type PlatformAiKey = z.infer<typeof platformAiKeySchema>;
 export type PlatformAiKeysResponse = z.infer<typeof platformAiKeysResponseSchema>;

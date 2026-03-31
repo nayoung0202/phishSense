@@ -198,79 +198,33 @@ export async function createPortalSession(input: {
   );
 }
 
-export async function fetchTenantCredits(tenantId: string) {
-  return requestJson<{
-    tenantId: string;
-    productId: string;
-    balance?: number | null;
-    included?: number | null;
-    pending?: number | null;
-    byokAvailable: boolean;
-    activeAiKeys: number;
-    rechargeUrl?: string | null;
-    policies: Array<{
-      featureKey: string;
-      label: string;
-      cost: number;
-      usageContexts: string[];
-    }>;
-    recentEvents: Array<{
-      eventId: string;
-      type: string;
-      amount: number;
-      description: string;
-      createdAt: string;
-    }>;
-  }>(`/api/platform/tenants/${tenantId}/credits`);
-}
-
-export async function authorizeTenantCredits(input: {
+export type TenantCreditsSummary = {
   tenantId: string;
-  featureKey: string;
-  usageContext: string;
-  quantity?: number;
-  metadata?: Record<string, unknown>;
-}) {
-  return requestJson<{
-    authorizationId: string;
-    status: "approved" | "blocked";
+  productId: string;
+  balance?: number | null;
+  byokAvailable: boolean;
+  activeAiKeys: number;
+  rechargeUrl?: string | null;
+  policies: Array<{
     featureKey: string;
-    usageContext: string;
+    label: string;
     cost: number;
-    remainingCredits?: number | null;
-    usesByok: boolean;
-    reasonCode?: string | null;
-    message?: string | null;
-  }>(`/api/platform/tenants/${input.tenantId}/credits/authorizations`, {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-}
+    usageContexts: string[];
+  }>;
+  recentEvents: Array<{
+    eventId: string;
+    type: string;
+    amount: number;
+    description: string;
+    createdAt: string;
+  }>;
+};
 
-export async function settleTenantCreditAuthorization(input: {
-  tenantId: string;
-  authorizationId: string;
-  metadata?: Record<string, unknown>;
-}) {
-  return requestJson<{ ok: boolean }>(
-    `/api/platform/tenants/${input.tenantId}/credits/authorizations/${input.authorizationId}/settle`,
+export async function fetchTenantCredits(tenantId: string) {
+  return requestJson<TenantCreditsSummary>(
+    `/api/platform/tenants/${tenantId}/credits`,
     {
-      method: "POST",
-      body: JSON.stringify({ metadata: input.metadata ?? {} }),
-    },
-  );
-}
-
-export async function releaseTenantCreditAuthorization(input: {
-  tenantId: string;
-  authorizationId: string;
-  metadata?: Record<string, unknown>;
-}) {
-  return requestJson<{ ok: boolean }>(
-    `/api/platform/tenants/${input.tenantId}/credits/authorizations/${input.authorizationId}/release`,
-    {
-      method: "POST",
-      body: JSON.stringify({ metadata: input.metadata ?? {} }),
+      cache: "no-store",
     },
   );
 }

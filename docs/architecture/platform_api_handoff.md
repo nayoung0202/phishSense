@@ -30,8 +30,7 @@
 ### platform-api
 
 - tenant / membership / entitlement canonical contract 제공
-- billing catalog / subscription / credits / credit recharge contract 제공
-- entitlement 확정 후 plan별 초기 포함 크레딧 부여
+- billing catalog / subscription contract 제공
 - invite token hash 저장과 membership 반영
 - Stripe Checkout / Portal 세션 생성
 
@@ -41,9 +40,13 @@
 - invite 링크 조합과 로그인 후 복귀
 - platform contract를 감싸는 BFF와 에러 메시지 매핑
 - product local entitlement projection과 UI 분기
+- tenant별 credit account / ledger 관리
+- entitlement plan 기준 초기 포함 크레딧 지급과 최근 변동 조회
+- 부족 크레딧 차단과 recharge URL 안내
 
 ## 보안 원칙
 
 - Stripe secret, webhook secret은 플랫폼 서버에서만 사용한다.
-- 제품은 크레딧 원장과 결제 비밀값을 직접 관리하지 않는다.
+- 제품은 구독 결제 비밀값을 직접 관리하지 않는다.
+- 제품은 tenant credit account / ledger를 직접 관리하되, 외부 결제 비밀값은 저장하지 않는다.
 - 브라우저 번들에는 공개 가능 값만 전달한다.

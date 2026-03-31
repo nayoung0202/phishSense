@@ -169,16 +169,15 @@ export const jaMessages: TranslationMessages = {
     "サブスクリプションと請求管理は OWNER のみ利用できます。",
   "settings.credits.title": "クレジット状況",
   "settings.credits.description":
-    "AI利用量と差引ポリシーを確認し、必要に応じてチャージまたはBYOKを設定します。",
+    "残りクレジット、差引ポリシー、最近の履歴を確認し、必要に応じて追加チャージします。",
   "settings.credits.balance": "残りクレジット",
-  "settings.credits.included": "含有クレジット",
-  "settings.credits.pending": "保留中の使用量",
   "settings.credits.history": "最近の履歴",
   "settings.credits.recharge": "クレジット充電",
   "settings.credits.byok": "BYOK設定",
   "settings.credits.policy": "差引ポリシー",
+  "settings.credits.policyCost": "1回あたり{{count}}クレジット差引",
   "settings.credits.reason":
-    "クレジットがなく有効なBYOKキーもない場合、AI生成はブロックされます。",
+    "クレジットが不足するとAI生成はブロックされ、すぐにチャージへ案内されます。",
   "settings.credits.requireAdmin":
     "クレジット状況は OWNER または ADMIN のみ確認できます。",
   "settings.credits.emptyHistory": "最近の変動履歴はありません。",

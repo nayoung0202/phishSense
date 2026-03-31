@@ -3,9 +3,9 @@
 ## 목적
 
 - 헤더 우측 유저 메뉴를 사이드바 하단 계정 카드로 재구성한다.
-- 설정 워크스페이스에서 언어, 멤버 초대, 구독, 크래딧을 한 곳에서 관리한다.
+- 설정 워크스페이스에서 언어, 멤버 초대, 구독, 크레딧을 한 곳에서 관리한다.
 - `platform-api` 기준 멤버 초대 계약을 제품/BFF에 반영한다.
-- 결제와 크레딧 정책은 제품 상수가 아니라 플랫폼 계약과 서버 카탈로그 기준으로 관리한다.
+- 구독은 플랫폼 계약을 따르되, AI 크레딧은 제품 서비스 내부 `account / ledger` 기준으로 관리한다.
 
 ## 포함 범위
 
@@ -29,9 +29,9 @@
   - Business는 플랫폼이 만든 Stripe Checkout 세션 URL로 리다이렉트
   - 고객 포털도 플랫폼 세션 URL로 리다이렉트
 - 크레딧 UI
-  - 잔액, 포함 크레딧, 예약 차감, 차감 정책, 최근 변동, 충전 CTA
-  - AI 생성 전 credit authorization, 성공 시 settle, 실패 시 release
-  - 크레딧 부족 시 바로 결제 기반 충전 동선
+  - 잔액, 차감 정책, 최근 변동, 충전 CTA
+  - AI 생성은 후보 탐색만 수행하고, 선택한 후보 반영 시 차감
+  - 크레딧 부족 시 후보 반영 대신 바로 recharge URL 기반 충전 동선
 - 신규 기능 플래그
   - `SETTINGS_V2_ENABLED`
   - `BILLING_UI_ENABLED`
@@ -42,7 +42,7 @@
 - invite 메일 발송, resend, revoke, delivery 조회
 - 제품이 직접 Stripe secret key를 보유하는 결제 구현
 - BYOK 기능 제공
-- 플랫폼 없는 상태에서의 장기 billing/credits source-of-truth 결정
+- 주기별 크레딧 리셋 정책 자동화
 
 ## 핵심 정책
 
@@ -68,7 +68,7 @@
 - Business 셀프서브 결제는 Stripe test mode Checkout을 사용한다.
 - Stripe secret, webhook secret, 운영 결제 키는 제품 저장소에 두지 않는다.
 - 제품은 플랫폼이 돌려준 Checkout / Portal URL로만 리다이렉트한다.
-- 추가 크레딧 충전은 바로 결제 기반으로 유도하고, 결제 세션은 플랫폼 계약을 기준으로 생성한다.
+- 추가 크레딧 충전은 제품이 제공하는 recharge URL로 유도하고, 이후 직접 결제 연동 또는 운영 결제 링크로 확장할 수 있다.
 - 운영 환경의 설정 사이드바에서는 `dev001@evriz.co.kr`부터 `dev999@evriz.co.kr`까지의 계정에만 `구독` 메뉴를 노출한다.
 
 ### 크레딧
@@ -76,14 +76,17 @@
 - 차감 정책 기준:
   - AI 템플릿 생성: 2
   - AI 훈련 안내 페이지 생성: 1
-- tenant 생성 후 entitlement plan이 확정되면 초기 포함 크레딧을 자동 부여한다.
+- tenant entitlement plan 기준으로 서비스가 초기 포함 크레딧을 자동 부여한다.
   - `FREE`: 3
   - `BUSINESS`: 10
   - `ENTERPRISE`: 별도 계약
 - `체험하기` 흐름을 포함한 모든 AI 생성은 동일한 차감 정책을 적용한다.
-- 크레딧이 부족하면 AI 생성은 차단하고 바로 결제 기반 충전 CTA를 노출한다.
+- 크레딧은 `tenant_credit_accounts`와 `tenant_credit_ledger`를 기준으로 관리한다.
+- 최근 변동은 최소 `지급`, `차감`, `충전`, `복구` 이력을 제공한다.
+- AI 생성은 후보 탐색 단계로 두고, 선택한 후보를 템플릿 또는 훈련 안내 페이지에 반영할 때 차감한다.
+- 크레딧이 부족하면 후보 반영은 차단하고 바로 recharge CTA를 노출한다.
 - 현재 범위에서는 BYOK를 제공하지 않는다.
-- route 계약은 추후 플랫폼 중앙관리 또는 확장 정책으로 전환할 수 있도록 tenant-scoped BFF 형태를 유지한다.
+- route 계약은 tenant-scoped BFF 형태를 유지하되, 내부 구현은 제품 서비스의 로컬 credit service를 사용한다.
 
 ### 도메인
 
@@ -116,9 +119,8 @@
 - `POST /api/platform/tenants/:tenantId/billing/checkout-sessions`
 - `POST /api/platform/tenants/:tenantId/billing/portal-sessions`
 - `GET /api/platform/tenants/:tenantId/credits`
-- `POST /api/platform/tenants/:tenantId/credits/authorizations`
-- `POST /api/platform/tenants/:tenantId/credits/authorizations/:id/settle`
-- `POST /api/platform/tenants/:tenantId/credits/authorizations/:id/release`
+- `POST /api/templates/ai-apply`
+- `POST /api/training-pages/ai-apply`
 
 ## 권한
 
@@ -131,12 +133,13 @@
 ## 구현 메모
 
 - tenant-scoped BFF는 기존 ready tenant 검증과 membership 검증을 재사용한다.
-- 플랫폼 billing/credits API가 준비되지 않은 개발 환경에서는 서버 fallback 카탈로그를 사용한다.
+- billing catalog가 준비되지 않은 개발 환경에서는 서버 fallback 카탈로그를 사용한다.
 - billing v1 checkout/portal POST는 tenant `OWNER`만 허용하고 `Idempotency-Key`를 필수로 전달한다.
 - billing v1 redirect는 raw URL 대신 `appKey=PHISHSENSE`와 route key allowlist 조합을 사용한다.
 - Stripe 복귀 후 제품 접근 제어는 `/platform/me`와 로컬 entitlement projection으로 판단하고, billing subscription 조회는 billing/settings 표시용으로만 사용한다.
-- 초기 포함 크레딧 부여와 충전 결제 세션 생성은 플랫폼 계약을 기준으로 한다.
-- 현재 AI 실행 엔진은 서버 관리형 기본 키를 사용하고, 차감 여부는 플랫폼 credits flow가 판단한다.
+- 초기 포함 크레딧은 로컬 entitlement plan 기준으로 제품 서비스가 부여한다.
+- 최근 변동은 로컬 credit ledger에서 조회한다.
+- 현재 AI 실행 엔진은 서버 관리형 기본 키를 사용하고, 차감 여부는 제품 credit service가 판단한다.
 
 ## 검증 기준
 
@@ -145,5 +148,5 @@
 - 초대 수락 후 `GET /platform/me`가 재조회되고 onboarding/ready 분기가 갱신된다.
 - 구독 화면은 서버 카탈로그를 렌더링하고 route key 기반 Stripe Checkout/Portal로 이동한다.
 - Stripe 복귀 후 `GET /platform/me`와 `GET /tenants/{tenantId}/billing/subscriptions/PHISHSENSE` 재조회 결과로 상태를 갱신한다.
-- 크레딧 화면은 잔액, 포함 크레딧, 예약 차감, 차감 정책, 최근 변동, 충전 CTA를 함께 제공한다.
+- 크레딧 화면은 잔액, 차감 정책, 최근 변동, 충전 CTA를 함께 제공한다.
 - 크레딧이 부족하면 AI 생성이 차단되고 바로 결제 충전 동선으로 이동할 수 있다.

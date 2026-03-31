@@ -71,7 +71,7 @@ export const koMessages = {
   "settings.domain": "도메인",
   "settings.members": "멤버",
   "settings.subscription": "구독",
-  "settings.credits": "크래딧",
+  "settings.credits": "크레딧",
   "settings.apiKeys": "API 키",
   "settings.general.title": "시스템 언어",
   "settings.general.description":
@@ -135,7 +135,7 @@ export const koMessages = {
   "settings.subscription.range": "사용자 수",
   "settings.subscription.monthlyEquivalent": "월 환산 금액",
   "settings.subscription.annualTotal": "연간 총액",
-  "settings.subscription.includedCredits": "포함 크래딧",
+  "settings.subscription.includedCredits": "포함 크레딧",
   "settings.subscription.currentPeriodEnd": "현재 결제 기간 종료",
   "settings.subscription.cancelAtPeriodEnd": "해지 예약",
   "settings.subscription.noActiveBilling":
@@ -162,20 +162,19 @@ export const koMessages = {
     "구독 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
   "settings.subscription.requireOwner":
     "구독과 결제 관리는 OWNER 권한에서만 사용할 수 있습니다.",
-  "settings.credits.title": "크래딧 현황",
+  "settings.credits.title": "크레딧 현황",
   "settings.credits.description":
-    "AI 사용량과 차감 정책을 확인하고, 필요하면 충전 또는 BYOK를 연결합니다.",
-  "settings.credits.balance": "남은 크래딧",
-  "settings.credits.included": "포함 크래딧",
-  "settings.credits.pending": "예약 차감",
+    "남은 크레딧과 차감 정책, 최근 변동 내역을 확인하고 필요하면 추가 크레딧을 충전합니다.",
+  "settings.credits.balance": "남은 크레딧",
   "settings.credits.history": "최근 변동",
-  "settings.credits.recharge": "크래딧 충전",
+  "settings.credits.recharge": "크레딧 충전",
   "settings.credits.byok": "BYOK 설정",
   "settings.credits.policy": "차감 정책",
+  "settings.credits.policyCost": "{{count}}크레딧 차감",
   "settings.credits.reason":
-    "크래딧이 부족하고 활성 BYOK가 없으면 AI 생성이 차단됩니다.",
+    "크레딧이 부족하면 AI 생성이 차단되고 바로 충전할 수 있습니다.",
   "settings.credits.requireAdmin":
-    "크래딧 현황은 OWNER 또는 ADMIN 권한에서만 확인할 수 있습니다.",
+    "크레딧 현황은 OWNER 또는 ADMIN 권한에서만 확인할 수 있습니다.",
   "settings.credits.emptyHistory": "최근 변동 이력이 없습니다.",
   "settings.apiKeys.title": "BYOK API 키",
   "settings.apiKeys.description":

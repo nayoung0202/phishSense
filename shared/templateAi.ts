@@ -218,9 +218,7 @@ export type TemplateAiDraft = TemplateAiCandidate & {
   generatedAt: string;
 };
 
-const TEMPLATE_AI_INPUT_COST_PER_MILLION = 0.1;
-const TEMPLATE_AI_OUTPUT_COST_PER_MILLION = 0.4;
-const CREDIT_USD_UNIT = 0.001;
+export const TEMPLATE_AI_FIXED_CREDIT_COST = 2;
 
 export const estimateTokenCountFromText = (value: string) =>
   Math.max(1, Math.ceil(value.trim().length / 4));
@@ -231,17 +229,7 @@ export const estimateTemplateAiCredits = (args: {
   difficulty: string;
   prompt: string;
   candidateCount: number;
-}) => {
-  const promptTokenCount =
-    estimateTokenCountFromText(`${args.topic} ${args.tone} ${args.difficulty} ${args.prompt}`) +
-    2200;
-  const candidateTokenCount = Math.max(1, args.candidateCount) * 2600;
-  const estimatedCostUsd =
-    (promptTokenCount / 1_000_000) * TEMPLATE_AI_INPUT_COST_PER_MILLION +
-    (candidateTokenCount / 1_000_000) * TEMPLATE_AI_OUTPUT_COST_PER_MILLION;
-
-  return Math.max(1, Math.ceil(estimatedCostUsd / CREDIT_USD_UNIT));
-};
+}) => TEMPLATE_AI_FIXED_CREDIT_COST;
 
 export const findUnsafeTemplateHtmlIssues = (html: string) => {
   const issues: string[] = [];

@@ -37,6 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { TemplatePreviewFrame } from "@/components/template-preview-frame";
 import { useToast } from "@/hooks/use-toast";
+import { syncTenantCreditsAfterCharge } from "@/lib/tenantCreditsRealtime";
 
 type SessionResponse = {
   authenticated: boolean;
@@ -48,7 +49,13 @@ type SessionResponse = {
 
 type ApiError = Error & {
   status?: number;
-  payload?: unknown;
+  payload?: {
+    reason?: string;
+    message?: string;
+    error?: string;
+    rechargeUrl?: string | null;
+    issues?: Array<{ message?: string }>;
+  } | null;
 };
 
 const previewLandingUrl = "/example-domain?type=landing";
@@ -75,27 +82,36 @@ const focusStepCard = (element: HTMLDivElement | null) => {
   });
 };
 
-const parseErrorMessage = (error: unknown, fallback: string) => {
+const parseErrorDetails = (
+  error: unknown,
+  fallback: string,
+): { message: string; rechargeUrl: string | null } => {
   if (!error || typeof error !== "object") {
-    return fallback;
+    return {
+      message: fallback,
+      rechargeUrl: null,
+    };
   }
 
   const typed = error as ApiError;
-  const payload = typed.payload as
-    | {
-        reason?: string;
-        message?: string;
-        error?: string;
-        issues?: Array<{ message?: string }>;
-      }
-    | undefined;
+  const payload = typed.payload ?? undefined;
 
   if (Array.isArray(payload?.issues) && payload.issues.length > 0) {
-    return payload.issues.map((issue) => issue.message).filter(Boolean).join(", ");
+    return {
+      message: payload.issues.map((issue) => issue.message).filter(Boolean).join(", "),
+      rechargeUrl: payload.rechargeUrl ?? null,
+    };
   }
 
-  return payload?.reason || payload?.message || payload?.error || typed.message || fallback;
+  return {
+    message:
+      payload?.reason || payload?.message || payload?.error || typed.message || fallback,
+    rechargeUrl: payload?.rechargeUrl ?? null,
+  };
 };
+
+const parseErrorMessage = (error: unknown, fallback: string) =>
+  parseErrorDetails(error, fallback).message;
 
 async function requestJson<TResponse>(
   input: RequestInfo | URL,
@@ -207,6 +223,20 @@ export default function ProjectExperienceWizard() {
         throw new Error("저장할 템플릿 후보를 먼저 선택하세요.");
       }
 
+      const chargeResult = await requestJson<{
+        ok: boolean;
+        tenantId?: string | null;
+        charged: boolean;
+        chargedCredits?: number | null;
+        remainingCredits?: number | null;
+      }>("/api/templates/ai-apply", {
+        method: "POST",
+        body: JSON.stringify({
+          usageContext: "experience",
+          candidateId: selectedTemplateCandidate.id,
+        }),
+      });
+      await syncTenantCreditsAfterCharge(queryClient, chargeResult);
       const payload = {
         name: selectedTemplateCandidate.subject,
         subject: selectedTemplateCandidate.subject,
@@ -268,6 +298,21 @@ export default function ProjectExperienceWizard() {
       if (!selectedTrainingCandidate) {
         throw new Error("저장할 훈련 안내 페이지 후보를 먼저 선택하세요.");
       }
+
+      const chargeResult = await requestJson<{
+        ok: boolean;
+        tenantId?: string | null;
+        charged: boolean;
+        chargedCredits?: number | null;
+        remainingCredits?: number | null;
+      }>("/api/training-pages/ai-apply", {
+        method: "POST",
+        body: JSON.stringify({
+          usageContext: "standard",
+          candidateId: selectedTrainingCandidate.id,
+        }),
+      });
+      await syncTenantCreditsAfterCharge(queryClient, chargeResult);
 
       const payload = {
         name: selectedTrainingCandidate.name,
@@ -389,6 +434,15 @@ export default function ProjectExperienceWizard() {
   const canGenerateTemplate = templateTopic !== "other" || templateCustomTopic.trim().length > 0;
   const smtpReady = Boolean(activeSmtpConfig);
   const smtpRefreshInProgress = smtpQuery.isFetching && !smtpQuery.isLoading;
+  const templateGenerateErrorDetails = templateGenerateMutation.isError
+    ? parseErrorDetails(templateGenerateMutation.error, "템플릿 후보 생성에 실패했습니다.")
+    : null;
+  const trainingGenerateErrorDetails = trainingGenerateMutation.isError
+    ? parseErrorDetails(
+        trainingGenerateMutation.error,
+        "훈련 안내 페이지 생성에 실패했습니다.",
+      )
+    : null;
 
   useEffect(() => {
     window.requestAnimationFrame(() => {
@@ -885,13 +939,23 @@ export default function ProjectExperienceWizard() {
       </Card>
 
       {templateGenerateMutation.isError ? (
-        <Card className="border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {parseErrorMessage(templateGenerateMutation.error, "템플릿 후보 생성에 실패했습니다.")}
+        <Card className="space-y-3 border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div>{templateGenerateErrorDetails?.message}</div>
+          {templateGenerateErrorDetails?.rechargeUrl ? (
+            <Button asChild size="sm" variant="outline">
+              <a href={templateGenerateErrorDetails.rechargeUrl}>크레딧 충전</a>
+            </Button>
+          ) : null}
         </Card>
       ) : null}
       {trainingGenerateMutation.isError ? (
-        <Card className="border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {parseErrorMessage(trainingGenerateMutation.error, "훈련 안내 페이지 생성에 실패했습니다.")}
+        <Card className="space-y-3 border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div>{trainingGenerateErrorDetails?.message}</div>
+          {trainingGenerateErrorDetails?.rechargeUrl ? (
+            <Button asChild size="sm" variant="outline">
+              <a href={trainingGenerateErrorDetails.rechargeUrl}>크레딧 충전</a>
+            </Button>
+          ) : null}
         </Card>
       ) : null}
     </div>

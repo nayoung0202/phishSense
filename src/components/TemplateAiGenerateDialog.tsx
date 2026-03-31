@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import {
@@ -36,12 +36,34 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/components/I18nProvider";
+import { syncTenantCreditsAfterCharge } from "@/lib/tenantCreditsRealtime";
 
 type GenerateResponse = {
   candidates: TemplateAiCandidate[];
   usage?: {
     estimatedCredits: number;
   };
+};
+
+type ApplyResponse = {
+  ok: boolean;
+  tenantId?: string | null;
+  charged: boolean;
+  chargedCredits?: number | null;
+  remainingCredits?: number | null;
+};
+
+type GenerateErrorPayload = {
+  error?: string;
+  message?: string;
+  rechargeUrl?: string | null;
+  requiredCredits?: number | null;
+  remainingCredits?: number | null;
+};
+
+type GenerateRequestError = Error & {
+  status?: number;
+  body?: GenerateErrorPayload | null;
 };
 
 type Props = {
@@ -65,29 +87,47 @@ const candidatePreviewSurfaceClass =
   "site-scrollbar max-h-[320px] overflow-y-auto rounded-lg bg-slate-50 p-4 text-slate-900";
 const focusedDialogContentClass = "max-w-5xl h-[88vh] overflow-hidden";
 
-const getGenerateErrorMessage = (error: unknown, fallbackMessage: string) => {
+const getGenerateErrorDetails = (
+  error: unknown,
+  fallbackMessage: string,
+): { message: string; rechargeUrl: string | null } => {
   if (!(error instanceof Error)) {
-    return fallbackMessage;
+    return {
+      message: fallbackMessage,
+      rechargeUrl: null,
+    };
+  }
+
+  const typedError = error as GenerateRequestError;
+  if (typedError.body) {
+    return {
+      message: typedError.body.error ?? typedError.body.message ?? fallbackMessage,
+      rechargeUrl: typedError.body.rechargeUrl ?? null,
+    };
   }
 
   const matchedBody = error.message.match(/^\d{3}:\s*([\s\S]+)$/)?.[1]?.trim();
   const rawMessage = matchedBody ?? error.message;
 
   try {
-    const parsed = JSON.parse(rawMessage) as {
-      error?: string;
-      message?: string;
-    };
+    const parsed = JSON.parse(rawMessage) as GenerateErrorPayload;
 
-    return parsed.error ?? parsed.message ?? rawMessage;
+    return {
+      message: parsed.error ?? parsed.message ?? rawMessage,
+      rechargeUrl: parsed.rechargeUrl ?? null,
+    };
   } catch {
-    return rawMessage;
+    return {
+      message: rawMessage,
+      rechargeUrl: null,
+    };
   }
 };
 
 export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
   const { t } = useI18n();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<DialogStep>("options");
   const [topic, setTopic] = useState<(typeof templateAiTopicOptions)[number]>(DEFAULT_TOPIC);
   const [customTopic, setCustomTopic] = useState("");
@@ -204,8 +244,21 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
       });
 
       if (!response.ok) {
-        const text = (await response.text()) || response.statusText;
-        throw new Error(`${response.status}: ${text}`);
+        const rawText = (await response.text()) || response.statusText;
+        let parsedBody: GenerateErrorPayload | null = null;
+
+        try {
+          parsedBody = rawText ? (JSON.parse(rawText) as GenerateErrorPayload) : null;
+        } catch {
+          parsedBody = null;
+        }
+
+        const requestError = new Error(
+          parsedBody?.error ?? parsedBody?.message ?? rawText,
+        ) as GenerateRequestError;
+        requestError.status = response.status;
+        requestError.body = parsedBody;
+        throw requestError;
       }
 
       return (await response.json()) as GenerateResponse;
@@ -219,6 +272,62 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
       setFocusedCandidate(null);
     },
   });
+
+  const applyMutation = useMutation({
+    mutationFn: async (candidate: TemplateAiCandidate) => {
+      const response = await fetch("/api/templates/ai-apply", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          usageContext: "standard",
+          candidateId: candidate.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const rawText = (await response.text()) || response.statusText;
+        let parsedBody: GenerateErrorPayload | null = null;
+
+        try {
+          parsedBody = rawText ? (JSON.parse(rawText) as GenerateErrorPayload) : null;
+        } catch {
+          parsedBody = null;
+        }
+
+        const requestError = new Error(
+          parsedBody?.error ?? parsedBody?.message ?? rawText,
+        ) as GenerateRequestError;
+        requestError.status = response.status;
+        requestError.body = parsedBody;
+        throw requestError;
+      }
+
+      return {
+        candidate,
+        chargeResult: (await response.json()) as ApplyResponse,
+      };
+    },
+    onSuccess: ({ candidate, chargeResult }) => {
+      void syncTenantCreditsAfterCharge(queryClient, chargeResult);
+
+      sessionStorage.setItem(
+        TEMPLATE_AI_DRAFT_SESSION_KEY,
+        JSON.stringify({
+          ...candidate,
+          source: "ai",
+          generatedAt: new Date().toISOString(),
+        }),
+      );
+
+      onOpenChange(false);
+      router.push("/templates/new?source=ai");
+    },
+  });
+
+  const isBusy = generateMutation.isPending || applyMutation.isPending;
 
   const handleReferenceAttachmentChange = (
     kind: "mail" | "malicious",
@@ -252,6 +361,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
 
   const handleGenerate = () => {
     if (!canGenerate || attachmentError) return;
+    applyMutation.reset();
     setSelectedCandidateId(null);
     setFocusedCandidate(null);
     setPairPage(0);
@@ -264,11 +374,13 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
   };
 
   const handleBackToOptions = () => {
+    applyMutation.reset();
     setFocusedCandidate(null);
     setStep("options");
   };
 
   const handleRegenerateAll = () => {
+    applyMutation.reset();
     setSelectedCandidateId(null);
     setFocusedCandidate(null);
     generateMutation.mutate([]);
@@ -276,32 +388,34 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
 
   const handleRegenerate = () => {
     if (!selectedCandidate) return;
+    applyMutation.reset();
     setFocusedCandidate(null);
     generateMutation.mutate([selectedCandidate]);
   };
 
   const handleApply = () => {
     if (!selectedCandidate) return;
-
-    sessionStorage.setItem(
-      TEMPLATE_AI_DRAFT_SESSION_KEY,
-      JSON.stringify({
-        ...selectedCandidate,
-        source: "ai",
-        generatedAt: new Date().toISOString(),
-      }),
-    );
-
-    onOpenChange(false);
-    router.push("/templates/new?source=ai");
+    applyMutation.mutate(selectedCandidate);
   };
 
   const renderError = () => {
-    if (!attachmentError && !generateMutation.error) return null;
+    if (!attachmentError && !generateMutation.error && !applyMutation.error) return null;
+    const requestError = applyMutation.error ?? generateMutation.error;
+    const errorDetails =
+      attachmentError || !requestError
+        ? null
+        : getGenerateErrorDetails(requestError, t("templateAi.generateErrorFallback"));
 
     return (
-      <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-        {attachmentError ?? getGenerateErrorMessage(generateMutation.error, t("templateAi.generateErrorFallback"))}
+      <div className="space-y-3 rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+        <div>
+          {attachmentError ?? errorDetails?.message ?? t("templateAi.generateErrorFallback")}
+        </div>
+        {errorDetails?.rechargeUrl ? (
+          <Button asChild size="sm" variant="outline">
+            <a href={errorDetails.rechargeUrl}>{t("settings.credits.recharge")}</a>
+          </Button>
+        ) : null}
       </div>
     );
   };
@@ -446,7 +560,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
         <div className="flex flex-col gap-2">
           <Button
             onClick={handleGenerate}
-            disabled={generateMutation.isPending || !canGenerate || Boolean(attachmentError)}
+            disabled={isBusy || !canGenerate || Boolean(attachmentError)}
           >
             {generateMutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -462,7 +576,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
             <Button
               variant="outline"
               onClick={handleReturnToCandidates}
-              disabled={generateMutation.isPending}
+              disabled={isBusy}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               {t("templateAi.backToCandidates")}
@@ -486,14 +600,14 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={handleBackToOptions} disabled={generateMutation.isPending}>
+          <Button variant="outline" onClick={handleBackToOptions} disabled={isBusy}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             {t("templateAi.backToOptions")}
           </Button>
           <Button
             variant="outline"
             onClick={handleRegenerateAll}
-            disabled={generateMutation.isPending}
+            disabled={isBusy}
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             {t("templateAi.regenerateAll")}
@@ -501,7 +615,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
           <Button
             variant="outline"
             onClick={handleRegenerate}
-            disabled={generateMutation.isPending || !selectedCandidate}
+            disabled={isBusy || !selectedCandidate}
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             {t("templateAi.regenerateExceptSelected")}
@@ -509,7 +623,7 @@ export function TemplateAiGenerateDialog({ open, onOpenChange }: Props) {
           <Button
             variant="secondary"
             onClick={handleApply}
-            disabled={!selectedCandidate || generateMutation.isPending}
+            disabled={!selectedCandidate || isBusy}
           >
             {t("templateAi.applySelected")}
           </Button>

@@ -10,7 +10,7 @@ import {
 import { buildTemplateAiPrompt } from "./templateAi";
 
 describe("templateAi helpers", () => {
-  it("요청 조건이 길고 후보 수가 많을수록 예상 크레딧이 증가한다", () => {
+  it("AI 템플릿 생성 예상 크레딧은 고정 2크레딧이다", () => {
     const low = estimateTemplateAiCredits({
       topic: "shipping",
       tone: "formal",
@@ -26,8 +26,8 @@ describe("templateAi helpers", () => {
       candidateCount: 4,
     });
 
-    expect(low).toBeGreaterThan(0);
-    expect(high).toBeGreaterThan(low);
+    expect(low).toBe(2);
+    expect(high).toBe(2);
   });
 
   it("외부 리소스와 스크립트 사용을 차단한다", () => {

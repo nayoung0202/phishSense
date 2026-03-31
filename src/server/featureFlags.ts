@@ -14,7 +14,7 @@ export const getFeatureFlags = (): FeatureFlags => ({
   billingUiEnabled: parseBoolean(process.env.BILLING_UI_ENABLED, true),
   creditsEnforcementEnabled: parseBoolean(
     process.env.CREDITS_ENFORCEMENT_ENABLED,
-    false,
+    true,
   ),
-  byokUiEnabled: parseBoolean(process.env.BYOK_UI_ENABLED, true),
+  byokUiEnabled: parseBoolean(process.env.BYOK_UI_ENABLED, false),
 });

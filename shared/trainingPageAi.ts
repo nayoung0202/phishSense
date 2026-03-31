@@ -10,6 +10,7 @@ import {
 
 export const TRAINING_PAGE_AI_DRAFT_SESSION_KEY = "phishsense.training-page.ai-draft";
 export const DEFAULT_TRAINING_PAGE_AI_MODEL = DEFAULT_TEMPLATE_AI_MODEL;
+export const TRAINING_PAGE_AI_FIXED_CREDIT_COST = 1;
 export { TEMPLATE_AI_REFERENCE_ATTACHMENT_ACCEPT };
 export type { TemplateAiReferenceAttachment };
 

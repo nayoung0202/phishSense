@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { extractBodyHtml } from "@/lib/html";
 import {
   DEFAULT_TRAINING_PAGE_AI_MODEL,
+  TRAINING_PAGE_AI_FIXED_CREDIT_COST,
   type TemplateAiReferenceAttachment,
   type TrainingPageAiCandidate,
   type TrainingPageAiRequest,
@@ -1002,14 +1003,12 @@ const estimateCreditsFromUsage = (usage: GeminiUsageMetadata) => {
   const promptTokenCount = usage.promptTokenCount ?? 0;
   const candidatesTokenCount = usage.candidatesTokenCount ?? 0;
   const totalTokenCount = usage.totalTokenCount ?? promptTokenCount + candidatesTokenCount;
-  const estimatedCostUsd =
-    promptTokenCount * (0.1 / 1_000_000) + candidatesTokenCount * (0.4 / 1_000_000);
 
   return {
     promptTokenCount,
     candidatesTokenCount,
     totalTokenCount,
-    estimatedCredits: Math.max(1, Math.ceil(estimatedCostUsd / 0.001)),
+    estimatedCredits: TRAINING_PAGE_AI_FIXED_CREDIT_COST,
   };
 };
 

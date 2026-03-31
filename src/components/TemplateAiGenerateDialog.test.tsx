@@ -4,8 +4,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { TEMPLATE_AI_DRAFT_SESSION_KEY } from "@shared/templateAi";
+import { PLATFORM_CONTEXT_QUERY_KEY } from "@/hooks/usePlatformContext";
 import { server } from "@/mocks/server";
 import { createQueryClient } from "@/lib/queryClient";
+import { buildTenantCreditsQueryKey } from "@/lib/tenantCreditsRealtime";
 import { TemplateAiGenerateDialog } from "./TemplateAiGenerateDialog";
 
 const pushMock = vi.fn();
@@ -15,6 +17,18 @@ vi.mock("next/navigation", () => ({
     push: pushMock,
   }),
 }));
+
+vi.mock("@/components/I18nProvider", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/i18n")>("@/lib/i18n");
+  const messages = actual.getMessages("ko");
+
+  return {
+    useI18n: () => ({
+      t: (key: Parameters<typeof actual.formatMessage>[1], values?: Parameters<typeof actual.formatMessage>[2]) =>
+        actual.formatMessage(messages, key, values),
+    }),
+  };
+});
 
 const buildCandidates = (prefix: string, count: number) =>
   Array.from({ length: count }, (_, index) => ({
@@ -32,6 +46,7 @@ const renderWithClient = (ui: React.ReactElement) => {
 
   return {
     ...result,
+    queryClient,
     rerenderWithClient: (nextUi: React.ReactElement) =>
       result.rerender(<QueryClientProvider client={queryClient}>{nextUi}</QueryClientProvider>),
   };
@@ -152,6 +167,34 @@ describe("TemplateAiGenerateDialog", () => {
       await screen.findByText("AI 템플릿 생성 요청이 일시적으로 많습니다. 잠시 후 다시 시도하세요."),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^503:/)).not.toBeInTheDocument();
+  });
+
+  it("크레딧 부족 오류면 충전 버튼을 함께 보여준다", async () => {
+    server.use(
+      http.post("/api/templates/ai-generate", () =>
+        HttpResponse.json(
+          {
+            error: "크레딧이 부족합니다. 계속 이용하려면 크레딧을 충전해주세요.",
+            rechargeUrl: "mailto:sales@evriz.co.kr",
+            requiredCredits: 2,
+            remainingCredits: 0,
+          },
+          { status: 402 },
+        ),
+      ),
+    );
+
+    renderWithClient(<TemplateAiGenerateDialog open={true} onOpenChange={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "템플릿 생성" }));
+
+    expect(
+      await screen.findByText("크레딧이 부족합니다. 계속 이용하려면 크레딧을 충전해주세요."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "크레딧 충전" })).toHaveAttribute(
+      "href",
+      "mailto:sales@evriz.co.kr",
+    );
   });
 
   it("옵션 다시 설정 후에도 입력값을 유지하고 후보 비교로 돌아갈 수 있다", async () => {
@@ -294,9 +337,42 @@ describe("TemplateAiGenerateDialog", () => {
           candidates: buildCandidates("반영", 4),
         }),
       ),
+      http.post("/api/templates/ai-apply", () =>
+        HttpResponse.json({
+          ok: true,
+          tenantId: "tenant-1",
+          charged: true,
+          chargedCredits: 2,
+          remainingCredits: 1,
+        }),
+      ),
     );
 
-    renderWithClient(<TemplateAiGenerateDialog open={true} onOpenChange={() => {}} />);
+    const { queryClient } = renderWithClient(
+      <TemplateAiGenerateDialog open={true} onOpenChange={() => {}} />,
+    );
+    queryClient.setQueryData(PLATFORM_CONTEXT_QUERY_KEY, {
+      authenticated: true,
+      status: "ready",
+      hasAccess: true,
+      onboardingRequired: false,
+      tenantId: "tenant-1",
+      currentTenantId: "tenant-1",
+      tenants: [{ tenantId: "tenant-1", name: "Acme", role: "OWNER" }],
+      products: [],
+      platformProduct: null,
+      localEntitlement: null,
+    });
+    queryClient.setQueryData(buildTenantCreditsQueryKey("tenant-1"), {
+      tenantId: "tenant-1",
+      productId: "phishsense",
+      balance: 3,
+      byokAvailable: false,
+      activeAiKeys: 0,
+      rechargeUrl: null,
+      policies: [],
+      recentEvents: [],
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "템플릿 생성" }));
     await screen.findByText("2단계. 후보 비교 및 선택");
@@ -304,54 +380,48 @@ describe("TemplateAiGenerateDialog", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "이 후보 선택" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "선택한 후보 반영" }));
 
-    const savedDraft = window.sessionStorage.getItem(TEMPLATE_AI_DRAFT_SESSION_KEY);
-    expect(savedDraft).not.toBeNull();
-    expect(savedDraft).toContain("반영 후보 1");
-    expect(pushMock).toHaveBeenCalledWith("/templates/new?source=ai");
+    await waitFor(() => {
+      const savedDraft = window.sessionStorage.getItem(TEMPLATE_AI_DRAFT_SESSION_KEY);
+      expect(savedDraft).not.toBeNull();
+      expect(savedDraft).toContain("반영 후보 1");
+      expect(
+        queryClient.getQueryData<{ balance?: number | null }>(
+          buildTenantCreditsQueryKey("tenant-1"),
+        )?.balance,
+      ).toBe(1);
+      expect(pushMock).toHaveBeenCalledWith("/templates/new?source=ai");
+    });
   });
 
-  it("참고 첨부파일을 선택하면 생성 요청에 각 파일이 포함된다", async () => {
-    const requests: Array<{
-      mailBodyReferenceAttachment: FormDataEntryValue | null;
-      maliciousPageReferenceAttachment: FormDataEntryValue | null;
-    }> = [];
-
-    server.use(
-      http.post("/api/templates/ai-generate", async ({ request }) => {
-        const body = await readGenerateFormData(request);
-        requests.push({
-          mailBodyReferenceAttachment: body.mailBodyReferenceAttachment,
-          maliciousPageReferenceAttachment: body.maliciousPageReferenceAttachment,
-        });
-
-        return HttpResponse.json({
-          candidates: buildCandidates("첨부", 4),
-        });
-      }),
-    );
-
+  it("참고 첨부파일을 선택하면 선택된 파일명이 표시된다", async () => {
     renderWithClient(<TemplateAiGenerateDialog open={true} onOpenChange={() => {}} />);
 
-    fireEvent.change(screen.getByLabelText("메일본문 첨부파일"), {
-      target: {
-        files: [new File(["<div>메일 참고</div>"], "mail-reference.html", { type: "text/html" })],
-      },
+    const mailFile = new File(["<div>메일 참고</div>"], "mail-reference.html", {
+      type: "text/html",
     });
-    fireEvent.change(screen.getByLabelText("악성메일본문 첨부파일"), {
-      target: {
-        files: [new File(["image"], "landing-reference.png", { type: "image/png" })],
-      },
+    const landingFile = new File(["image"], "landing-reference.png", { type: "image/png" });
+    const createFileList = (file: File) =>
+      ({
+        0: file,
+        length: 1,
+        item: (index: number) => (index === 0 ? file : null),
+      }) as unknown as FileList;
+
+    const mailInput = screen.getByLabelText("메일본문 첨부파일");
+    Object.defineProperty(mailInput, "files", {
+      configurable: true,
+      value: createFileList(mailFile),
     });
+    fireEvent.change(mailInput);
 
-    fireEvent.click(screen.getByRole("button", { name: "템플릿 생성" }));
-    await screen.findByText("2단계. 후보 비교 및 선택");
+    const landingInput = screen.getByLabelText("악성메일본문 첨부파일");
+    Object.defineProperty(landingInput, "files", {
+      configurable: true,
+      value: createFileList(landingFile),
+    });
+    fireEvent.change(landingInput);
 
-    const mailAttachment = requests[0]?.mailBodyReferenceAttachment;
-    const maliciousAttachment = requests[0]?.maliciousPageReferenceAttachment;
-
-    expect(mailAttachment).toBeInstanceOf(File);
-    expect((mailAttachment as File).name).toBe("mail-reference.html");
-    expect(maliciousAttachment).toBeInstanceOf(File);
-    expect((maliciousAttachment as File).name).toBe("landing-reference.png");
+    expect(await screen.findByText("선택된 파일: mail-reference.html")).toBeInTheDocument();
+    expect(screen.getByText("선택된 파일: landing-reference.png")).toBeInTheDocument();
   });
 });

@@ -79,6 +79,45 @@ export const tenantDomainsTable = pgTable(
   }),
 );
 
+export const tenantCreditAccountsTable = pgTable(
+  "tenant_credit_accounts",
+  {
+    tenantId: text("tenant_id").primaryKey(),
+    planCode: text("plan_code").notNull().default("FREE"),
+    balance: integer("balance").notNull().default(0),
+    includedCredits: integer("included_credits").notNull().default(0),
+    createdAt: timestampColumn("created_at").defaultNow(),
+    updatedAt: timestampColumn("updated_at").defaultNow(),
+  },
+  (table) => ({
+    planIdx: index("tenant_credit_accounts_plan_idx").on(table.planCode),
+  }),
+);
+
+export const tenantCreditLedgerTable = pgTable(
+  "tenant_credit_ledger",
+  {
+    id: text("id").primaryKey(),
+    tenantId: text("tenant_id").notNull(),
+    type: text("type").notNull(),
+    amount: integer("amount").notNull(),
+    balanceAfter: integer("balance_after").notNull(),
+    description: text("description").notNull(),
+    featureKey: text("feature_key"),
+    usageContext: text("usage_context"),
+    referenceId: text("reference_id"),
+    metadataJson: text("metadata_json"),
+    createdAt: timestampColumn("created_at").defaultNow(),
+  },
+  (table) => ({
+    tenantIdx: index("tenant_credit_ledger_tenant_idx").on(table.tenantId),
+    tenantCreatedIdx: index("tenant_credit_ledger_tenant_created_idx").on(
+      table.tenantId,
+      table.createdAt,
+    ),
+  }),
+);
+
 export const smtpAccountsTable = pgTable(
   "smtp_accounts",
   {
@@ -150,3 +189,7 @@ export type TenantAiKeyRow = typeof tenantAiKeysTable.$inferSelect;
 export type NewTenantAiKeyRow = typeof tenantAiKeysTable.$inferInsert;
 export type TenantDomainRow = typeof tenantDomainsTable.$inferSelect;
 export type NewTenantDomainRow = typeof tenantDomainsTable.$inferInsert;
+export type TenantCreditAccountRow = typeof tenantCreditAccountsTable.$inferSelect;
+export type NewTenantCreditAccountRow = typeof tenantCreditAccountsTable.$inferInsert;
+export type TenantCreditLedgerRow = typeof tenantCreditLedgerTable.$inferSelect;
+export type NewTenantCreditLedgerRow = typeof tenantCreditLedgerTable.$inferInsert;

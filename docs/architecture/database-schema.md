@@ -44,6 +44,13 @@
 | `smtp_accounts` | 테넌트별 다건 발송 설정 | `tenant_id`, `name`, `host`, `security_mode`, `username`, `password_enc`, `allowed_domains_json`, `is_active` |
 | `tenant_domains` | 테넌트별 공개 링크 발급 도메인 | `tenant_id`, `slug`, `fqdn`, 생성/수정 시각 |
 
+### 크레딧
+
+| 테이블 | 역할 | 핵심 필드 |
+| --- | --- | --- |
+| `tenant_credit_accounts` | 테넌트별 현재 크레딧 잔액과 플랜 기준 기본 제공량 상태 | `tenant_id`, `plan_code`, `balance`, `included_credits` |
+| `tenant_credit_ledger` | 지급/차감/충전/복구 이력 원장 | `tenant_id`, `type`, `amount`, `balance_after`, `description`, `reference_id` |
+
 ### 예비/레거시
 
 | 테이블 | 역할 |
@@ -84,6 +91,12 @@
 - `tenant_domains.tenant_id`: 발급 도메인 소유 tenant 식별자
 - `tenant_domains.slug`: one-label 공개 서브도메인 slug
 - `tenant_domains.fqdn`: 실제 공개 링크 host (`slug.base-domain`)
+
+### 크레딧
+
+- `tenant_credit_accounts.balance`: 현재 남은 크레딧
+- `tenant_credit_accounts.included_credits`: entitlement plan 기준 기본 제공량 추적값
+- `tenant_credit_ledger.balance_after`: 각 원장 이벤트 직후의 잔액 스냅샷
 
 ## 상태값 요약
 

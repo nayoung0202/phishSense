@@ -104,10 +104,28 @@ const setupHandlers = (options: { smtpReady: boolean }) => {
         candidates: [buildTemplateCandidate()],
       }),
     ),
+    http.post("/api/templates/ai-apply", () =>
+      HttpResponse.json({
+        ok: true,
+        tenantId: "tenant-1",
+        charged: true,
+        chargedCredits: 2,
+        remainingCredits: 1,
+      }),
+    ),
     http.post("/api/templates", () => HttpResponse.json(buildSavedTemplate())),
     http.post("/api/training-pages/ai-generate", () =>
       HttpResponse.json({
         candidates: [buildTrainingCandidate()],
+      }),
+    ),
+    http.post("/api/training-pages/ai-apply", () =>
+      HttpResponse.json({
+        ok: true,
+        tenantId: "tenant-1",
+        charged: true,
+        chargedCredits: 1,
+        remainingCredits: 0,
       }),
     ),
     http.post("/api/training-pages", () => HttpResponse.json(buildSavedTrainingPage())),

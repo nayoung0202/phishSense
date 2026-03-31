@@ -10,9 +10,6 @@ import {
   platformCreateInviteRequestSchema,
   platformCreateInviteResponseSchema,
   platformCreateTenantResponseSchema,
-  platformCreditAuthorizationRequestSchema,
-  platformCreditAuthorizationResponseSchema,
-  platformCreditsResponseSchema,
   platformMeResponseSchema,
   platformPortalSessionRequestSchema,
   platformPortalSessionResponseSchema,
@@ -26,9 +23,6 @@ import {
   type PlatformCreateInviteRequest,
   type PlatformCreateInviteResponse,
   type PlatformCreateTenantResponse,
-  type PlatformCreditAuthorizationRequest,
-  type PlatformCreditAuthorizationResponse,
-  type PlatformCreditsResponse,
   type PlatformMeResponse,
   type PlatformCheckoutSessionRequest,
   type PlatformPortalSessionRequest,
@@ -258,64 +252,6 @@ export async function createPlatformPortalSession(options: {
 
   const parsed = await parseJson<unknown>(response);
   return platformPortalSessionResponseSchema.parse(parsed);
-}
-
-export async function fetchPlatformCredits(options: {
-  accessToken: string;
-  tenantId: string;
-}): Promise<PlatformCreditsResponse> {
-  const response = await requestPlatform({
-    accessToken: options.accessToken,
-    path: `/tenants/${options.tenantId}/credits`,
-  });
-
-  const parsed = await parseJson<unknown>(response);
-  return platformCreditsResponseSchema.parse(parsed);
-}
-
-export async function authorizePlatformCredits(options: {
-  accessToken: string;
-  tenantId: string;
-  input: PlatformCreditAuthorizationRequest;
-}): Promise<PlatformCreditAuthorizationResponse> {
-  const payload = platformCreditAuthorizationRequestSchema.parse(options.input);
-  const response = await requestPlatform({
-    accessToken: options.accessToken,
-    path: `/tenants/${options.tenantId}/credits/authorizations`,
-    method: "POST",
-    body: payload,
-  });
-
-  const parsed = await parseJson<unknown>(response);
-  return platformCreditAuthorizationResponseSchema.parse(parsed);
-}
-
-export async function settlePlatformCreditAuthorization(options: {
-  accessToken: string;
-  tenantId: string;
-  authorizationId: string;
-  input?: { metadata?: Record<string, unknown> };
-}) {
-  await requestPlatform({
-    accessToken: options.accessToken,
-    path: `/tenants/${options.tenantId}/credits/authorizations/${options.authorizationId}/settle`,
-    method: "POST",
-    body: options.input ?? {},
-  });
-}
-
-export async function releasePlatformCreditAuthorization(options: {
-  accessToken: string;
-  tenantId: string;
-  authorizationId: string;
-  input?: { metadata?: Record<string, unknown> };
-}) {
-  await requestPlatform({
-    accessToken: options.accessToken,
-    path: `/tenants/${options.tenantId}/credits/authorizations/${options.authorizationId}/release`,
-    method: "POST",
-    body: options.input ?? {},
-  });
 }
 
 export async function fetchPlatformAiKeys(options: {
