@@ -81,6 +81,22 @@ def main():
                     return True
             return False
 
+        def build_donut_percentages(raw_values):
+            safe_raw_values = [max(float(value), 0) for value in raw_values]
+            total = sum(safe_raw_values)
+            if total <= 0:
+                return [0.0 for _ in safe_raw_values]
+            return [(value / total) * 100 for value in safe_raw_values]
+
+        def build_donut_legend_labels(label_list, raw_values):
+            percentages = build_donut_percentages(raw_values)
+            legend_labels = []
+            for index, percent in enumerate(percentages):
+                raw_label = label_list[index] if index < len(label_list) else ""
+                label = raw_label if isinstance(raw_label, str) and raw_label.strip() else f"항목 {index + 1}"
+                legend_labels.append(f"{label} {percent:.1f}%")
+            return legend_labels
+
     try:
         template = DocxTemplate(template_path)
 
@@ -117,11 +133,13 @@ def main():
                 )
 
             safe_values = [max(float(v), 0) for v in values]
-            if chart_type != "bar" and sum(safe_values) <= 0:
-                safe_values = [1 for _ in safe_values]
+            donut_percentages = build_donut_percentages(safe_values)
+            render_values = safe_values
+            if chart_type != "bar" and sum(render_values) <= 0:
+                render_values = [1 for _ in render_values]
 
             colors = chart.get("colors")
-            if not isinstance(colors, list) or len(colors) < len(safe_values):
+            if not isinstance(colors, list) or len(colors) < len(render_values):
                 if chart_type == "bar":
                     colors = ["#4EC3E0", "#7C9CF5", "#F59E0B", "#F97316"]
                 else:
@@ -142,15 +160,53 @@ def main():
                 ax.spines["left"].set_visible(False)
                 ax.tick_params(axis="y", labelsize=9, colors="#64748B")
             else:
-                ax.pie(
-                    safe_values,
+                wedges, _ = ax.pie(
+                    render_values,
                     labels=None,
                     startangle=90,
-                    colors=colors,
-                    wedgeprops={"width": 0.4, "edgecolor": "white"},
+                    counterclock=False,
+                    colors=colors[: len(render_values)],
+                    wedgeprops={"width": 0.4, "edgecolor": "white", "linewidth": 2},
                 )
                 ax.axis("equal")
                 ax.axis("off")
+
+                primary_label = labels[0] if labels else "비율"
+                primary_percent = donut_percentages[0] if donut_percentages else 0.0
+                ax.text(
+                    0,
+                    0.08,
+                    f"{primary_percent:.1f}%",
+                    ha="center",
+                    va="center",
+                    fontsize=15,
+                    fontweight="bold",
+                    color="#0F172A",
+                )
+                ax.text(
+                    0,
+                    -0.16,
+                    primary_label,
+                    ha="center",
+                    va="center",
+                    fontsize=8.5,
+                    color="#64748B",
+                )
+
+                legend_labels = build_donut_legend_labels(labels, safe_values)
+                if legend_labels:
+                    ax.legend(
+                        wedges,
+                        legend_labels,
+                        loc="center left",
+                        bbox_to_anchor=(0.98, 0.5),
+                        frameon=False,
+                        fontsize=8.5,
+                        handlelength=1.2,
+                        handletextpad=0.6,
+                        borderaxespad=0.0,
+                    )
+                    fig.subplots_adjust(right=0.72)
 
             chart_path = f"{output_path}.{key}.png"
             fig.savefig(chart_path, dpi=150, bbox_inches="tight", transparent=True)

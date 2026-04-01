@@ -42,7 +42,8 @@ import {
   getProjectDepartmentDisplay,
 } from "@shared/projectDepartment";
 import { format } from "date-fns";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Sector } from "recharts";
+import type { PieProps } from "recharts";
 import {
   PROJECT_DETAIL_REFETCH_INTERVAL_MS,
   createAlwaysFreshQueryOptions,
@@ -62,7 +63,50 @@ const statusConfig: Record<string, { className: string }> = {
   "완료": { className: "bg-green-500/20 text-green-400" },
 };
 
-const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))'];
+const COLORS = [
+  'hsl(var(--chart-1))', 'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))', 'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+  '#8b5cf6', '#f59e0b', '#10b981', '#f43f5e', '#6366f1', '#0ea5e9',
+];
+
+type PieActiveShapeRenderer = Extract<
+  NonNullable<PieProps["activeShape"]>,
+  (props: unknown) => JSX.Element
+>;
+
+const renderActivePieShape: PieActiveShapeRenderer = (props) => {
+  const {
+    cx = 0,
+    cy = 0,
+    innerRadius = 0,
+    outerRadius = 0,
+    startAngle = 0,
+    endAngle = 0,
+    fill = "hsl(var(--chart-1))",
+  } = (props ?? {}) as {
+    cx?: number;
+    cy?: number;
+    innerRadius?: number;
+    outerRadius?: number;
+    startAngle?: number;
+    endAngle?: number;
+    fill?: string;
+  };
+  return (
+    <Sector
+      cx={cx}
+      cy={cy}
+      innerRadius={innerRadius}
+      outerRadius={outerRadius + 8}
+      startAngle={startAngle}
+      endAngle={endAngle}
+      fill={fill}
+      stroke="hsl(var(--background))"
+      strokeWidth={3}
+    />
+  );
+};
 
 const toProjectEditRoute = (projectId: string) =>
   `/projects/${projectId}/edit` as Route;
@@ -104,6 +148,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isTimelineExporting, setIsTimelineExporting] = useState(false);
   const [selectedLog, setSelectedLog] = useState<ActionLogItem | null>(null);
+  const [activePieIndex, setActivePieIndex] = useState<number | undefined>(undefined);
   const invalidateProjectQueries = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: PROJECTS_DETAIL_QUERY_KEY(projectId) });
     queryClient.invalidateQueries({ queryKey: PROJECTS_LIST_QUERY_KEY });
@@ -482,13 +527,17 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                   data={chartDepartmentData}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
+                  labelLine={activePieIndex !== undefined}
                   label={({ name, value }) => `${name} ${value}명`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
                   stroke="none"
                   paddingAngle={chartDepartmentData.length > 1 ? 1 : 0}
+                  activeIndex={activePieIndex}
+                  activeShape={renderActivePieShape}
+                  onMouseEnter={(_, index) => setActivePieIndex(index)}
+                  onMouseLeave={() => setActivePieIndex(undefined)}
                 >
                   {chartDepartmentData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
