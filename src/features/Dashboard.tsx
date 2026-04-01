@@ -79,6 +79,30 @@ type QuarterComparisonItem = {
   submitRate: number;
 };
 
+type ProjectTrendSource = Pick<
+  Project,
+  "startDate" | "fiscalYear" | "targetCount" | "openCount" | "clickCount" | "submitCount"
+>;
+
+export type YearlyTrendPoint = {
+  key: string;
+  monthNumber: number;
+  quarterNumber: number;
+  targetCount: number;
+  openCount: number;
+  clickCount: number;
+  submitCount: number;
+  openRate: number;
+  clickRate: number;
+  submitRate: number;
+};
+
+type YearlyTrendChartItem = YearlyTrendPoint & {
+  monthLabel: string;
+  quarterLabel: string;
+  isQuarterStart: boolean;
+};
+
 const toMonthKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
@@ -112,7 +136,20 @@ const toQuarterKey = (date: Date) => `${date.getFullYear()}-Q${getQuarterNumber(
 const toQuarterStartDate = (date: Date) =>
   new Date(date.getFullYear(), (getQuarterNumber(date) - 1) * 3, 1);
 
+const ALL_QUARTERS_VALUE = "all";
+
 const RATE_DATA_KEYS = new Set(["openRate", "clickRate", "submitRate"]);
+
+const getSafeProjectStartDate = (startDate: ProjectTrendSource["startDate"]) => {
+  const date = new Date(startDate);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getProjectYear = (project: Pick<ProjectTrendSource, "startDate" | "fiscalYear">) => {
+  const startDate = getSafeProjectStartDate(project.startDate);
+  if (!startDate) return null;
+  return project.fiscalYear ?? startDate.getFullYear();
+};
 
 export const formatPercent = (value: number | null) =>
   value === null ? "-" : `${Math.round(value)}%`;
@@ -122,6 +159,52 @@ export const formatCount = (value: number | null | undefined, locale?: string) =
 
 export const isRateDataKey = (dataKey: unknown): dataKey is "openRate" | "clickRate" | "submitRate" =>
   typeof dataKey === "string" && RATE_DATA_KEYS.has(dataKey);
+
+export const buildYearlyTrendData = (
+  projects: ProjectTrendSource[],
+  year: number,
+): YearlyTrendPoint[] => {
+  const monthlySummaries = Array.from({ length: 12 }, (_, index) => ({
+    key: `${year}-${String(index + 1).padStart(2, "0")}`,
+    monthNumber: index + 1,
+    quarterNumber: Math.floor(index / 3) + 1,
+    targetCount: 0,
+    openCount: 0,
+    clickCount: 0,
+    submitCount: 0,
+    openRate: 0,
+    clickRate: 0,
+    submitRate: 0,
+  }));
+
+  projects.forEach((project) => {
+    const startDate = getSafeProjectStartDate(project.startDate);
+    if (!startDate) return;
+
+    const projectYear = project.fiscalYear ?? startDate.getFullYear();
+    if (projectYear !== year) return;
+
+    const summary = monthlySummaries[startDate.getMonth()];
+    if (!summary) return;
+
+    summary.targetCount += project.targetCount ?? 0;
+    summary.openCount += project.openCount ?? 0;
+    summary.clickCount += project.clickCount ?? 0;
+    summary.submitCount += project.submitCount ?? 0;
+  });
+
+  return monthlySummaries.map((summary) => {
+    const safeRate = (count: number) =>
+      summary.targetCount > 0 ? (count / summary.targetCount) * 100 : 0;
+
+    return {
+      ...summary,
+      openRate: safeRate(summary.openCount),
+      clickRate: safeRate(summary.clickCount),
+      submitRate: safeRate(summary.submitCount),
+    };
+  });
+};
 
 export default function Dashboard() {
   const { locale, t } = useI18n();
@@ -354,18 +437,22 @@ export default function Dashboard() {
 
   const [selectedQuarterNumber, setSelectedQuarterNumber] = useState<string | null>(() => {
     if (!yearOptions.length) return null;
-    const initialYear = Number(yearOptions[0].value);
-    const quarters = quartersByYear.get(initialYear) ?? [];
-    return quarters.length > 0 ? String(quarters[0]) : null;
+    return ALL_QUARTERS_VALUE;
   });
 
   const quarterOptions = useMemo(() => {
     if (!selectedYear) return [];
     const quarters = quartersByYear.get(Number(selectedYear)) ?? [];
-    return quarters.map((quarter) => ({
-      value: String(quarter),
-      label: t("dashboard.quarterOption", { quarter }),
-    }));
+    return [
+      {
+        value: ALL_QUARTERS_VALUE,
+        label: t("dashboard.allOption"),
+      },
+      ...quarters.map((quarter) => ({
+        value: String(quarter),
+        label: t("dashboard.quarterOption", { quarter }),
+      })),
+    ];
   }, [quartersByYear, selectedYear, t]);
 
   useEffect(() => {
@@ -410,16 +497,12 @@ export default function Dashboard() {
     }
 
     const quarters = quartersByYear.get(Number(selectedYear)) ?? [];
-    if (!quarters.length) {
-      setSelectedQuarterNumber(null);
-      return;
-    }
-
     if (
       !selectedQuarterNumber ||
-      !quarters.includes(Number(selectedQuarterNumber))
+      (selectedQuarterNumber !== ALL_QUARTERS_VALUE &&
+        !quarters.includes(Number(selectedQuarterNumber)))
     ) {
-      setSelectedQuarterNumber(String(quarters[0]));
+      setSelectedQuarterNumber(ALL_QUARTERS_VALUE);
     }
   }, [quartersByYear, selectedYear, selectedQuarterNumber]);
 
@@ -427,8 +510,39 @@ export default function Dashboard() {
     monthlySummaries.find((summary) => summary.key === selectedMonthKey) ??
     monthlySummaries[0];
 
+  const isYearlyTrendMode = selectedQuarterNumber === ALL_QUARTERS_VALUE;
+
   const selectedQuarterKey =
-    selectedYear && selectedQuarterNumber ? `${selectedYear}-Q${selectedQuarterNumber}` : null;
+    selectedYear &&
+    selectedQuarterNumber &&
+    selectedQuarterNumber !== ALL_QUARTERS_VALUE
+      ? `${selectedYear}-Q${selectedQuarterNumber}`
+      : null;
+
+  const selectedYearProjects = useMemo(() => {
+    if (!selectedYear) return [];
+    const parsedYear = Number(selectedYear);
+    return projects.filter((project) => getProjectYear(project) === parsedYear);
+  }, [projects, selectedYear]);
+
+  const yearlyTrendData = useMemo<YearlyTrendChartItem[]>(() => {
+    if (!selectedYear) return [];
+
+    const parsedYear = Number(selectedYear);
+    return buildYearlyTrendData(selectedYearProjects, parsedYear).map((summary) => {
+      const monthDate = new Date(parsedYear, summary.monthNumber - 1, 1);
+      return {
+        ...summary,
+        monthLabel: new Intl.DateTimeFormat(intlLocale, {
+          month: "short",
+        }).format(monthDate),
+        quarterLabel: t("dashboard.quarterShortLabel", {
+          quarter: summary.quarterNumber,
+        }),
+        isQuarterStart: summary.monthNumber % 3 === 1,
+      };
+    });
+  }, [intlLocale, selectedYear, selectedYearProjects, t]);
 
   const selectedQuarterProjects = useMemo(() => {
     if (!selectedQuarterKey) return [];
@@ -468,6 +582,11 @@ export default function Dashboard() {
     return quarterComparisonData.reduce((max, item) => Math.max(max, item.targetCount), 0);
   }, [quarterComparisonData]);
 
+  const maxYearlyTarget = useMemo(() => {
+    if (!yearlyTrendData.length) return 0;
+    return yearlyTrendData.reduce((max, item) => Math.max(max, item.targetCount), 0);
+  }, [yearlyTrendData]);
+
   const handleYearChange = (year: string) => {
     const nextMonths = monthYearMap.get(Number(year)) ?? [];
     if (!nextMonths.length) return;
@@ -492,6 +611,49 @@ export default function Dashboard() {
   const handleNextMonth = () => {
     if (currentMonthIndex < 0 || currentMonthIndex >= availableMonthKeys.length - 1) return;
     setSelectedMonthKey(availableMonthKeys[currentMonthIndex + 1] ?? null);
+  };
+
+  const renderYearlyMonthTick = ({
+    x = 0,
+    y = 0,
+    index = 0,
+  }: {
+    x?: number;
+    y?: number;
+    index?: number;
+  }) => {
+    const entry = yearlyTrendData[index];
+    if (!entry) {
+      return <g />;
+    }
+
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text
+          x={0}
+          y={0}
+          dy={16}
+          textAnchor="middle"
+          fill="hsl(var(--muted-foreground))"
+          fontSize={12}
+        >
+          {entry.monthLabel}
+        </text>
+        {entry.isQuarterStart ? (
+          <text
+            x={0}
+            y={0}
+            dy={31}
+            textAnchor="middle"
+            fill="hsl(var(--primary))"
+            fontSize={10}
+            fontWeight={600}
+          >
+            {entry.quarterLabel}
+          </text>
+        ) : null}
+      </g>
+    );
   };
 
   if (!isLoading && projects.length === 0) {
@@ -689,7 +851,12 @@ export default function Dashboard() {
               {t("dashboard.comparisonDescription")}
             </p>
             <p className="text-xs text-muted-foreground">
-              {selectedQuarterKey
+              {selectedYear && isYearlyTrendMode
+                ? t("dashboard.selectedYearSummary", {
+                    year: selectedYear,
+                    count: formatSummaryCount(selectedYearProjects.length),
+                  })
+                : selectedQuarterKey
                 ? t("dashboard.selectedQuarterSummary", {
                     year: selectedYear ?? "-",
                     quarter: selectedQuarterNumber ?? "-",
@@ -738,6 +905,89 @@ export default function Dashboard() {
         <div className="h-[360px]">
           {isLoading ? (
             <Skeleton className="h-full w-full rounded-md" />
+          ) : isYearlyTrendMode ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={yearlyTrendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="monthLabel"
+                  stroke="hsl(var(--muted-foreground))"
+                  axisLine={false}
+                  tickLine={false}
+                  interval={0}
+                  height={56}
+                  tick={renderYearlyMonthTick}
+                />
+                <YAxis
+                  yAxisId="count"
+                  stroke="hsl(var(--muted-foreground))"
+                  tickFormatter={(value) => formatCount(Number(value), intlLocale)}
+                  width={60}
+                  domain={[0, Math.max(maxYearlyTarget, 10)]}
+                />
+                <YAxis
+                  yAxisId="rate"
+                  orientation="right"
+                  domain={[0, 100]}
+                  stroke="hsl(var(--muted-foreground))"
+                  tickFormatter={(value) => formatPercent(Number(value))}
+                  width={60}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--popover))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.5rem",
+                  }}
+                  labelFormatter={(value) => {
+                    const entry = yearlyTrendData.find((item) => item.monthLabel === value);
+                    return entry ? `${entry.monthLabel} · ${entry.quarterLabel}` : String(value);
+                  }}
+                  formatter={(value, name, item) => {
+                    const label = String(name);
+                    if (isRateDataKey(item?.dataKey)) {
+                      return [formatPercent(Number(value)), label];
+                    }
+                    return [formatCount(Number(value), intlLocale), label];
+                  }}
+                />
+                <Legend />
+                <Bar
+                  yAxisId="count"
+                  dataKey="targetCount"
+                  name={t("dashboard.sentCount")}
+                  fill="hsl(var(--primary))"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Line
+                  yAxisId="rate"
+                  type="linear"
+                  dataKey="openRate"
+                  name={t("dashboard.openRate")}
+                  stroke="hsl(var(--chart-2))"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  yAxisId="rate"
+                  type="linear"
+                  dataKey="clickRate"
+                  name={t("dashboard.clickRate")}
+                  stroke="hsl(var(--chart-3))"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  yAxisId="rate"
+                  type="linear"
+                  dataKey="submitRate"
+                  name={t("dashboard.submitRate")}
+                  stroke="hsl(var(--chart-4))"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
           ) : quarterComparisonData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={quarterComparisonData}>

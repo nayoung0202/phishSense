@@ -286,19 +286,22 @@ export const jaMessages: TranslationMessages = {
   "dashboard.statsUnavailable": "統計データを取得できませんでした。",
   "dashboard.comparisonTitle": "模擬訓練比較",
   "dashboard.comparisonDescription":
-    "年と四半期を選択して、その期間のプロジェクト成果を比較してください。",
+    "年と四半期を選択するか、すべてを選んで12か月の推移と四半期の流れを確認してください。",
   "dashboard.noQuarter": "選択できる四半期がありません。",
+  "dashboard.allOption": "すべて",
   "dashboard.selectQuarter": "四半期を選択",
   "dashboard.noProjectsForQuarter":
     "選択した四半期に比較するプロジェクトがありません。",
   "dashboard.untitledProject": "無題のプロジェクト",
   "dashboard.quarterLabel": "{{year}}年 第{{quarter}}四半期",
+  "dashboard.quarterShortLabel": "Q{{quarter}}",
   "dashboard.monthSummaryLabel": "{{label}}時点",
   "dashboard.summaryOpenCount": "{{count}}名 開封",
   "dashboard.summaryClickCount": "{{count}}名 クリック",
   "dashboard.summarySubmitCount": "{{count}}名 提出",
   "dashboard.selectedQuarterSummary":
     "{{year}}年 第{{quarter}}四半期 合計{{count}}件",
+  "dashboard.selectedYearSummary": "{{year}}年 12か月推移 合計{{count}}件",
   "targets.title": "対象者管理",
   "targets.downloadSample": "サンプルExcelをダウンロード",
   "targets.uploadExcel": "Excelアップロード",
