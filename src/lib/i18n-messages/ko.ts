@@ -50,7 +50,6 @@ export const koMessages = {
   "account.currentAccount": "현재 접속 계정",
   "account.admin": "관리자",
   "account.profile": "프로필",
-  "nav.workspace": "Workspace",
   "nav.dashboard": "대시보드",
   "nav.projects": "프로젝트",
   "nav.targets": "훈련대상 관리",
@@ -65,8 +64,6 @@ export const koMessages = {
   "auth.or": "또는",
   "auth.firstTime": "처음 이용하시나요?",
   "auth.startFree": "무료로 시작하기",
-  "settings.title": "설정",
-  "settings.subtitle": "언어, 도메인, 멤버, 구독, 크레딧을 관리합니다.",
   "settings.general": "일반",
   "settings.domain": "도메인",
   "settings.members": "멤버",
@@ -88,8 +85,6 @@ export const koMessages = {
   "settings.domain.issuedDomain": "발급 도메인",
   "settings.domain.current": "현재 발급값",
   "settings.domain.none": "아직 발급된 도메인이 없습니다.",
-  "settings.domain.trackingOnly":
-    "이 도메인은 메일 본문에 삽입되는 트래킹 URL에만 사용됩니다. 로그인/설정 화면 도메인은 바뀌지 않습니다.",
   "settings.domain.saveTitle": "slug 발급 또는 변경",
   "settings.domain.slug": "slug",
   "settings.domain.slugDescription":
@@ -97,7 +92,6 @@ export const koMessages = {
   "settings.domain.slugPlaceholder": "예: acme-security",
   "settings.domain.preview": "미리보기",
   "settings.domain.saved": "도메인 설정을 저장했습니다.",
-  "settings.domain.copyIssuedDomain": "도메인 복사",
   "settings.domain.cnameTitle": "CNAME 등록 가이드",
   "settings.domain.cnameDescription":
     "고객사 DNS에서 별도 서브도메인을 운영할 때 참고할 값입니다.",
@@ -105,8 +99,10 @@ export const koMessages = {
   "settings.domain.cnameHost": "호스트 예시",
   "settings.domain.cnameValue": "값",
   "settings.domain.copyCnameValue": "CNAME 값 복사",
-  "settings.domain.cnameTlsNote":
-    "현재 범위는 `*.phishsense.cloud` 와일드카드 SSL만 전제합니다. 고객사 커스텀 도메인을 HTTPS로 실사용하려면 별도 인증서와 검증 구성이 추가로 필요합니다.",
+  "settings.domain.active": "활성",
+  "settings.domain.noChange": "현재 슬러그와 동일합니다",
+  "settings.domain.noneHint": "왼쪽에서 슬러그를 설정하면 도메인이 발급됩니다.",
+  "settings.domain.cnameSetupNote": "도메인을 먼저 발급한 뒤 CNAME을 설정하세요.",
   "settings.members.title": "멤버 초대",
   "settings.members.description":
     "현재 tenant 멤버를 확인하고 새 멤버 초대 링크를 생성합니다.",

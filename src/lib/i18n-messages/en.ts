@@ -53,7 +53,6 @@ export const enMessages: TranslationMessages = {
   "account.currentAccount": "Signed in as",
   "account.admin": "Administrator",
   "account.profile": "Profile",
-  "nav.workspace": "Workspace",
   "nav.dashboard": "Dashboard",
   "nav.projects": "Projects",
   "nav.targets": "Targets",
@@ -68,9 +67,6 @@ export const enMessages: TranslationMessages = {
   "auth.or": "or",
   "auth.firstTime": "First time here?",
   "auth.startFree": "Start for free",
-  "settings.title": "Settings",
-  "settings.subtitle":
-    "Manage language, domains, members, subscription, and credits.",
   "settings.general": "General",
   "settings.domain": "Domain",
   "settings.members": "Members",
@@ -92,8 +88,6 @@ export const enMessages: TranslationMessages = {
   "settings.domain.issuedDomain": "Issued domain",
   "settings.domain.current": "Current value",
   "settings.domain.none": "No domain has been issued yet.",
-  "settings.domain.trackingOnly":
-    "This subdomain is used only for tracking URLs inserted into email bodies. It does not change the authenticated app domain.",
   "settings.domain.saveTitle": "Issue or change slug",
   "settings.domain.slug": "Slug",
   "settings.domain.slugDescription":
@@ -101,7 +95,6 @@ export const enMessages: TranslationMessages = {
   "settings.domain.slugPlaceholder": "Example: acme-security",
   "settings.domain.preview": "Preview",
   "settings.domain.saved": "Domain settings saved.",
-  "settings.domain.copyIssuedDomain": "Copy domain",
   "settings.domain.cnameTitle": "CNAME guide",
   "settings.domain.cnameDescription":
     "Use this as a reference when the customer operates a separate DNS subdomain.",
@@ -109,8 +102,10 @@ export const enMessages: TranslationMessages = {
   "settings.domain.cnameHost": "Host example",
   "settings.domain.cnameValue": "Value",
   "settings.domain.copyCnameValue": "Copy CNAME value",
-  "settings.domain.cnameTlsNote":
-    "The current scope assumes wildcard SSL only for `*.phishsense.cloud`. Customer-owned HTTPS domains need separate certificate and verification work.",
+  "settings.domain.active": "Active",
+  "settings.domain.noChange": "Same as current slug",
+  "settings.domain.noneHint": "Set a slug on the left to issue a domain.",
+  "settings.domain.cnameSetupNote": "Issue a domain first, then configure CNAME.",
   "settings.members.title": "Member invites",
   "settings.members.description":
     "Review current members and create invite links for this tenant.",

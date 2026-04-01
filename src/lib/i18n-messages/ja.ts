@@ -53,7 +53,6 @@ export const jaMessages: TranslationMessages = {
   "account.currentAccount": "現在のアカウント",
   "account.admin": "管理者",
   "account.profile": "プロフィール",
-  "nav.workspace": "ワークスペース",
   "nav.dashboard": "ダッシュボード",
   "nav.projects": "プロジェクト",
   "nav.targets": "対象者管理",
@@ -68,9 +67,6 @@ export const jaMessages: TranslationMessages = {
   "auth.or": "または",
   "auth.firstTime": "初めてご利用ですか？",
   "auth.startFree": "無料で始める",
-  "settings.title": "設定",
-  "settings.subtitle":
-    "言語、ドメイン、メンバー、サブスクリプション、クレジットを管理します。",
   "settings.general": "一般",
   "settings.domain": "ドメイン",
   "settings.members": "メンバー",
@@ -92,8 +88,6 @@ export const jaMessages: TranslationMessages = {
   "settings.domain.issuedDomain": "発行ドメイン",
   "settings.domain.current": "現在の値",
   "settings.domain.none": "まだ発行されたドメインがありません。",
-  "settings.domain.trackingOnly":
-    "このサブドメインはメール本文に挿入されるトラッキングURL専用です。認証済みアプリのドメインは変更されません。",
   "settings.domain.saveTitle": "slugを発行または変更",
   "settings.domain.slug": "slug",
   "settings.domain.slugDescription":
@@ -101,7 +95,6 @@ export const jaMessages: TranslationMessages = {
   "settings.domain.slugPlaceholder": "例: acme-security",
   "settings.domain.preview": "プレビュー",
   "settings.domain.saved": "ドメイン設定を保存しました。",
-  "settings.domain.copyIssuedDomain": "ドメインをコピー",
   "settings.domain.cnameTitle": "CNAME登録ガイド",
   "settings.domain.cnameDescription":
     "顧客DNSで別サブドメインを運用する場合の参考値です。",
@@ -109,8 +102,10 @@ export const jaMessages: TranslationMessages = {
   "settings.domain.cnameHost": "ホスト例",
   "settings.domain.cnameValue": "値",
   "settings.domain.copyCnameValue": "CNAME値をコピー",
-  "settings.domain.cnameTlsNote":
-    "現在の範囲は `*.phishsense.cloud` のワイルドカードSSLのみを前提にしています。顧客独自ドメインをHTTPSで実運用するには別途証明書と検証構成が必要です。",
+  "settings.domain.active": "アクティブ",
+  "settings.domain.noChange": "現在のslugと同じです",
+  "settings.domain.noneHint": "左側でslugを設定するとドメインが発行されます。",
+  "settings.domain.cnameSetupNote": "先にドメインを発行してからCNAMEを設定してください。",
   "settings.members.title": "メンバー招待",
   "settings.members.description":
     "現在のメンバーを確認し、この tenant の招待リンクを作成します。",
