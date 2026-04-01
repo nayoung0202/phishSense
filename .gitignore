@@ -14,8 +14,7 @@ vite.config.ts.*
 dev.db
 *.sqlite
 public/uploads
-storage/reports
-tenant-export/
+storage/
 
 .idea
 .local

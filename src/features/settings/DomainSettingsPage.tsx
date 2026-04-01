@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, Globe2, Loader2, ShieldCheck, Waypoints } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -67,15 +67,6 @@ export default function DomainSettingsPage() {
   const previewFqdn = previewSlug ? `${previewSlug}.${baseDomain}` : `tenant-slug.${baseDomain}`;
   const activeFqdn = domainQuery.data?.domain?.fqdn ?? null;
   const cnameTarget = activeFqdn ?? previewFqdn;
-
-  const trackingExamples = useMemo(
-    () => [
-      `/p/{token}`,
-      `/t/{token}`,
-      `/o/{token}`,
-    ].map((path) => `https://${cnameTarget}${path}`),
-    [cnameTarget],
-  );
 
   const handleCopy = async (value: string) => {
     await navigator.clipboard.writeText(value);
@@ -255,20 +246,6 @@ export default function DomainSettingsPage() {
           </Button>
         </div>
         <p className="mt-4 text-sm text-muted-foreground">{t("settings.domain.cnameTlsNote")}</p>
-      </Card>
-
-      <Card className="border-white/10 bg-card/85 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-        <h3 className="text-xl font-bold">{t("settings.domain.trackingExamples")}</h3>
-        <div className="mt-5 space-y-3">
-          {trackingExamples.map((example) => (
-            <div
-              key={example}
-              className="rounded-2xl border border-border/60 bg-background/40 p-4"
-            >
-              <p className="break-all text-sm font-medium">{example}</p>
-            </div>
-          ))}
-        </div>
       </Card>
     </div>
   );

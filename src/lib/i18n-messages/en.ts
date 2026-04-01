@@ -111,7 +111,6 @@ export const enMessages: TranslationMessages = {
   "settings.domain.copyCnameValue": "Copy CNAME value",
   "settings.domain.cnameTlsNote":
     "The current scope assumes wildcard SSL only for `*.phishsense.cloud`. Customer-owned HTTPS domains need separate certificate and verification work.",
-  "settings.domain.trackingExamples": "Injected URL examples",
   "settings.members.title": "Member invites",
   "settings.members.description":
     "Review current members and create invite links for this tenant.",

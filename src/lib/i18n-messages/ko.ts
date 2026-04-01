@@ -107,7 +107,6 @@ export const koMessages = {
   "settings.domain.copyCnameValue": "CNAME 값 복사",
   "settings.domain.cnameTlsNote":
     "현재 범위는 `*.phishsense.cloud` 와일드카드 SSL만 전제합니다. 고객사 커스텀 도메인을 HTTPS로 실사용하려면 별도 인증서와 검증 구성이 추가로 필요합니다.",
-  "settings.domain.trackingExamples": "삽입 URL 예시",
   "settings.members.title": "멤버 초대",
   "settings.members.description":
     "현재 tenant 멤버를 확인하고 새 멤버 초대 링크를 생성합니다.",

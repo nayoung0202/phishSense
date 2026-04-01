@@ -111,7 +111,6 @@ export const jaMessages: TranslationMessages = {
   "settings.domain.copyCnameValue": "CNAME値をコピー",
   "settings.domain.cnameTlsNote":
     "現在の範囲は `*.phishsense.cloud` のワイルドカードSSLのみを前提にしています。顧客独自ドメインをHTTPSで実運用するには別途証明書と検証構成が必要です。",
-  "settings.domain.trackingExamples": "挿入URLの例",
   "settings.members.title": "メンバー招待",
   "settings.members.description":
     "現在のメンバーを確認し、この tenant の招待リンクを作成します。",
