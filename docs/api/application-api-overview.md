@@ -41,6 +41,8 @@
 | 보고서 생성/다운로드 | `/api/reports/generate`, `/api/reports/[id]/download` |
 | 발송 작업 상태 | `/api/send-jobs/[jobId]` |
 
+- `POST /api/reports/generate`는 `downloadFormat`으로 `word` 또는 `pdf`를 받을 수 있으며, `GET /api/reports/[id]/download`는 생성된 형식에 맞는 파일을 반환합니다.
+
 ## 관리자 기능
 
 | 리소스 | 주요 경로 |

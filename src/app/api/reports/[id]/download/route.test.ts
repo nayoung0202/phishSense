@@ -109,4 +109,23 @@ describe("GET /api/reports/[id]/download", () => {
     expect(response.headers.get("Content-Disposition")).toContain("Acme_Security");
     expect(readFileMock).toHaveBeenCalledWith("/tmp/reports/instance-1.docx");
   });
+
+  it("pdf 보고서는 pdf 첨부 파일을 반환한다", async () => {
+    tenantStorageMock.getReportInstanceForTenant.mockResolvedValueOnce(
+      buildReportInstanceFixture({
+        ...baseInstance,
+        fileKey: "tenants/tenant-a/reports/generated/instance-1.pdf",
+      }),
+    );
+    reportStorageMock.resolveStoragePath.mockReturnValueOnce("/tmp/reports/instance-1.pdf");
+
+    const response = await GET(new Request("http://localhost") as never, {
+      params: Promise.resolve({ id: "instance-1" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("application/pdf");
+    expect(response.headers.get("Content-Disposition")).toContain(".pdf");
+    expect(readFileMock).toHaveBeenCalledWith("/tmp/reports/instance-1.pdf");
+  });
 });

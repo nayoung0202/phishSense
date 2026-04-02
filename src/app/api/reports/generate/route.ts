@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  DEFAULT_REPORT_DOWNLOAD_FORMAT,
+  reportDownloadFormats,
+} from "@/lib/reportDownloadFormat";
 import { generateProjectReport } from "@/server/services/reportGenerator";
 import {
   buildReadyTenantErrorResponse,
@@ -12,6 +16,10 @@ const requestSchema = z.object({
   projectId: z.string().min(1, "프로젝트 ID가 필요합니다."),
   reportSettingId: z.string().min(1, "보고서 설정 ID가 필요합니다."),
   templateId: z.string().optional(),
+  downloadFormat: z
+    .enum(reportDownloadFormats)
+    .optional()
+    .default(DEFAULT_REPORT_DOWNLOAD_FORMAT),
 });
 
 export async function POST(request: NextRequest) {
@@ -26,6 +34,7 @@ export async function POST(request: NextRequest) {
     const result = await generateProjectReport(tenantId, parsed.data.projectId, {
       templateId: parsed.data.templateId,
       reportSettingId: parsed.data.reportSettingId,
+      downloadFormat: parsed.data.downloadFormat,
     });
 
     return NextResponse.json(result);

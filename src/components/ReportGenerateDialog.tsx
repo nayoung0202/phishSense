@@ -16,8 +16,15 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getIntlLocale } from "@/lib/i18n";
+import {
+  DEFAULT_REPORT_DOWNLOAD_FORMAT,
+  isReportDownloadFormat,
+  reportDownloadFormats,
+  type ReportDownloadFormat,
+} from "@/lib/reportDownloadFormat";
 
 type ReportSettingItem = {
   id: string;
@@ -61,6 +68,8 @@ export function ReportGenerateDialog({
   const [isCaptureUploading, setIsCaptureUploading] = useState(false);
   const [isReportGenerating, setIsReportGenerating] = useState(false);
   const [selectedReportSettingId, setSelectedReportSettingId] = useState("");
+  const [selectedDownloadFormat, setSelectedDownloadFormat] =
+    useState<ReportDownloadFormat>(DEFAULT_REPORT_DOWNLOAD_FORMAT);
 
   const reportSettingsQuery = useQuery({
     queryKey: ["report-settings", "for-generate"] as const,
@@ -84,6 +93,7 @@ export function ReportGenerateDialog({
   useEffect(() => {
     if (!open) {
       setCaptureFiles(EMPTY_CAPTURE_FILES);
+      setSelectedDownloadFormat(DEFAULT_REPORT_DOWNLOAD_FORMAT);
       return;
     }
     setCaptureFiles(EMPTY_CAPTURE_FILES);
@@ -181,6 +191,7 @@ export function ReportGenerateDialog({
         body: JSON.stringify({
           projectId: currentProject.id,
           reportSettingId: selectedReportSettingId,
+          downloadFormat: selectedDownloadFormat,
         }),
       });
       if (!res.ok) {
@@ -219,7 +230,7 @@ export function ReportGenerateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         data-testid="report-generate-dialog"
-        className="flex max-h-[92vh] w-[96vw] max-w-[64rem] flex-col overflow-hidden p-0"
+        className="flex max-h-[94vh] w-[96vw] max-w-[72rem] flex-col overflow-hidden p-0"
       >
         <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle>{t("reportGenerate.title")}</DialogTitle>
@@ -227,103 +238,148 @@ export function ReportGenerateDialog({
         </DialogHeader>
 
         <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-4 px-6 py-2">
-          <div className="text-sm text-muted-foreground">
-          {currentProject ? (
-            <div className="space-y-2">
-              <p>
-                <span className="font-semibold">{t("reportGenerate.projectNameLabel")}</span> {currentProject.name}
-              </p>
-              <p>
-                <span className="font-semibold">{t("reportGenerate.projectDepartmentLabel")}</span> {getProjectDepartmentDisplay(currentProject)}
-              </p>
-              <p>
-                <span className="font-semibold">{t("reportGenerate.projectScheduleLabel")}</span>{" "}
-                {new Date(currentProject.startDate).toLocaleDateString(intlLocale)} ~{" "}
-                {new Date(currentProject.endDate).toLocaleDateString(intlLocale)}
-              </p>
-              <p>{currentProject.description ?? t("common.noDescription")}</p>
-            </div>
-          ) : (
-            <p>{t("reportGenerate.noProjectSelected")}</p>
-          )}
-          </div>
-
-        <div className="space-y-2 rounded-lg border border-muted p-3">
-          <Label className="text-sm font-semibold">{t("reportGenerate.selectSettingLabel")}</Label>
-          <select
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            value={selectedReportSettingId}
-            onChange={(event) => setSelectedReportSettingId(event.target.value)}
-            disabled={!hasReportSettings || reportSettingsQuery.isLoading}
-          >
-            {!hasReportSettings ? (
-              <option value="">{t("reportGenerate.noSettings")}</option>
-            ) : (
-              reportSettings.map((setting) => (
-                <option key={setting.id} value={setting.id}>
-                  {setting.name} ({setting.companyName}){setting.isDefault ? ` · ${t("common.default")}` : ""}
-                </option>
-              ))
-            )}
-          </select>
-          {!hasReportSettings ? (
-            <p className="text-xs text-destructive">
-              {t("reportGenerate.requireSettings")}
-            </p>
-          ) : selectedSetting ? (
-            <p className="text-xs text-muted-foreground">
-              {t("reportGenerate.approverLabel")} {selectedSetting.approverName}
-              {selectedSetting.approverTitle ? ` (${selectedSetting.approverTitle})` : ""}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="space-y-3 rounded-lg border border-muted p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold">{t("reportGenerate.captureSectionTitle")}</p>
-              <p className="text-xs text-muted-foreground">{t("reportGenerate.captureSectionDescription")}</p>
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={uploadReportCaptures}
-              disabled={!currentProject || isCaptureUploading}
-            >
-              {isCaptureUploading ? t("reportGenerate.uploadingButton") : t("reportGenerate.uploadButton")}
-            </Button>
-          </div>
-          <div className="space-y-3">
-            {reportCaptureFields.map((field) => {
-              const file = captureFiles[field.key];
-              const uploaded = currentProject?.[field.projectField];
-              const status = file
-                ? t("reportGenerate.fileSelectedStatus", { file: file.name })
-                : uploaded
-                  ? t("reportGenerate.fileUploadedStatus")
-                  : t("reportGenerate.fileMissingStatus");
-              return (
-                <div key={field.key} className="space-y-1">
-                  <Label className="text-xs font-semibold">{t(field.labelKey)}</Label>
-                  <div className="space-y-2">
-                    <Input
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      className="w-full"
-                      onChange={handleCaptureFileChange(field.key)}
-                      disabled={!currentProject || isCaptureUploading}
-                    />
-                    <span className="text-xs text-muted-foreground">{status}</span>
+          <div className="space-y-4 px-6 py-2 pb-4">
+            <div className="rounded-lg border border-muted bg-muted/10 p-3 text-sm text-muted-foreground">
+              {currentProject ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1 sm:col-span-2">
+                    <span className="font-semibold">{t("reportGenerate.projectNameLabel")}</span> {currentProject.name}
+                    <p>{currentProject.description ?? t("common.noDescription")}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{t(field.descriptionKey)}</p>
+                  <p className="space-y-1">
+                    <span className="font-semibold">{t("reportGenerate.projectDepartmentLabel")}</span>{" "}
+                    {getProjectDepartmentDisplay(currentProject)}
+                  </p>
+                  <p className="space-y-1">
+                    <span className="font-semibold">{t("reportGenerate.projectScheduleLabel")}</span>{" "}
+                    {new Date(currentProject.startDate).toLocaleDateString(intlLocale)} ~{" "}
+                    {new Date(currentProject.endDate).toLocaleDateString(intlLocale)}
+                  </p>
                 </div>
-              );
-            })}
-          </div>
-          <p className="text-xs text-muted-foreground">{t("reportGenerate.allCapturesRequired")}</p>
-        </div>
+              ) : (
+                <p>{t("reportGenerate.noProjectSelected")}</p>
+              )}
+            </div>
 
+            <div className="space-y-3">
+              <div className="space-y-2 rounded-lg border border-muted p-3">
+                <Label className="text-sm font-semibold">{t("reportGenerate.selectSettingLabel")}</Label>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={selectedReportSettingId}
+                  onChange={(event) => setSelectedReportSettingId(event.target.value)}
+                  disabled={!hasReportSettings || reportSettingsQuery.isLoading}
+                >
+                  {!hasReportSettings ? (
+                    <option value="">{t("reportGenerate.noSettings")}</option>
+                  ) : (
+                    reportSettings.map((setting) => (
+                      <option key={setting.id} value={setting.id}>
+                        {setting.name} ({setting.companyName}){setting.isDefault ? ` · ${t("common.default")}` : ""}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {!hasReportSettings ? (
+                  <p className="text-xs text-destructive">{t("reportGenerate.requireSettings")}</p>
+                ) : selectedSetting ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t("reportGenerate.approverLabel")} {selectedSetting.approverName}
+                    {selectedSetting.approverTitle ? ` (${selectedSetting.approverTitle})` : ""}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-muted p-3">
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">{t("reportGenerate.downloadFormatLabel")}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t("reportGenerate.downloadFormatDescription")}
+                  </p>
+                </div>
+                <RadioGroup
+                  value={selectedDownloadFormat}
+                  onValueChange={(value) => {
+                    if (isReportDownloadFormat(value)) {
+                      setSelectedDownloadFormat(value);
+                    }
+                  }}
+                  className="grid gap-2 sm:grid-cols-2"
+                >
+                  {reportDownloadFormats.map((format) => {
+                    const itemId = `report-download-format-${format}`;
+                    const isSelected = selectedDownloadFormat === format;
+                    return (
+                      <Label
+                        key={format}
+                        htmlFor={itemId}
+                        className={[
+                          "flex cursor-pointer items-start gap-3 rounded-md border px-3 py-3 transition-colors",
+                          isSelected ? "border-primary bg-primary/5" : "border-input",
+                        ].join(" ")}
+                      >
+                        <RadioGroupItem id={itemId} value={format} className="mt-0.5" />
+                        <div className="space-y-1">
+                          <span className="block text-sm font-medium">
+                            {t(`reportGenerate.downloadFormat.${format}`)}
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            {t(`reportGenerate.downloadFormat.${format}.description`)}
+                          </span>
+                        </div>
+                      </Label>
+                    );
+                  })}
+                </RadioGroup>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-muted p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold">{t("reportGenerate.captureSectionTitle")}</p>
+                  <p className="text-xs text-muted-foreground">{t("reportGenerate.captureSectionDescription")}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={uploadReportCaptures}
+                  disabled={!currentProject || isCaptureUploading}
+                >
+                  {isCaptureUploading ? t("reportGenerate.uploadingButton") : t("reportGenerate.uploadButton")}
+                </Button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {reportCaptureFields.map((field) => {
+                  const file = captureFiles[field.key];
+                  const uploaded = currentProject?.[field.projectField];
+                  const status = file
+                    ? t("reportGenerate.fileSelectedStatus", { file: file.name })
+                    : uploaded
+                      ? t("reportGenerate.fileUploadedStatus")
+                      : t("reportGenerate.fileMissingStatus");
+                  return (
+                    <div key={field.key} className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                          <Label className="text-xs font-semibold">{t(field.labelKey)}</Label>
+                          <p className="text-[11px] text-muted-foreground">{t(field.descriptionKey)}</p>
+                        </div>
+                        <span className="shrink-0 text-[11px] text-muted-foreground">{status}</span>
+                      </div>
+                      <Input
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        className="w-full"
+                        onChange={handleCaptureFileChange(field.key)}
+                        disabled={!currentProject || isCaptureUploading}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">{t("reportGenerate.allCapturesRequired")}</p>
+            </div>
           </div>
         </ScrollArea>
 

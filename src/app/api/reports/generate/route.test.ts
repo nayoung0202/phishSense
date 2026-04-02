@@ -62,8 +62,36 @@ describe("POST /api/reports/generate", () => {
     expect(generatorMock.generateProjectReport).toHaveBeenCalledWith(TENANT_A_ID, "project-1", {
       templateId: undefined,
       reportSettingId: "setting-1",
+      downloadFormat: "word",
     });
     expect(body.downloadUrl).toContain("/api/reports/instance-1/download");
+  });
+
+  it("pdf 형식 요청이면 해당 값을 생성 함수에 전달한다", async () => {
+    generatorMock.generateProjectReport.mockResolvedValue({
+      instanceId: "instance-2",
+      downloadUrl: "/api/reports/instance-2/download",
+      fileKey: "tenants/tenant-a/reports/generated/instance-2.pdf",
+    });
+
+    const request = new Request("http://localhost/api/reports/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: "project-2",
+        reportSettingId: "setting-1",
+        downloadFormat: "pdf",
+      }),
+    });
+
+    const response = await POST(request as never);
+
+    expect(response.status).toBe(200);
+    expect(generatorMock.generateProjectReport).toHaveBeenCalledWith(TENANT_A_ID, "project-2", {
+      templateId: undefined,
+      reportSettingId: "setting-1",
+      downloadFormat: "pdf",
+    });
   });
 
   it("생성 실패 시 실제 오류 메시지를 응답에 담는다", async () => {

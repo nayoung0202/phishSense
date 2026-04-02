@@ -417,7 +417,7 @@ export const jaMessages: TranslationMessages = {
   "trainingPageEdit.contentPlaceholder": "ページに表示する内容を入力してください。",
   "reportGenerate.title": "プロジェクトレポートのプレビュー",
   "reportGenerate.description":
-    "レポート設定を選択し、キャプチャをアップロードしてレポートを生成してください。",
+    "レポート設定とダウンロード形式を選択し、キャプチャをアップロードしてレポートを生成してください。",
   "reportGenerate.loadSettingsFailed": "レポート設定一覧を読み込めませんでした。",
   "reportGenerate.noUploadFileAlert": "アップロードするキャプチャ画像がありません。",
   "reportGenerate.uploadSuccessTitle": "キャプチャアップロード完了",
@@ -437,6 +437,15 @@ export const jaMessages: TranslationMessages = {
   "reportGenerate.projectScheduleLabel": "日程:",
   "reportGenerate.noProjectSelected": "選択されたプロジェクトがありません。",
   "reportGenerate.selectSettingLabel": "レポート設定を選択",
+  "reportGenerate.downloadFormatLabel": "レポートのダウンロード形式",
+  "reportGenerate.downloadFormatDescription":
+    "レポート生成後にすぐダウンロードする形式を選択してください。",
+  "reportGenerate.downloadFormat.word": "Word (.docx)",
+  "reportGenerate.downloadFormat.word.description":
+    "編集しやすいレポート文書形式でダウンロードします。",
+  "reportGenerate.downloadFormat.pdf": "PDF",
+  "reportGenerate.downloadFormat.pdf.description":
+    "共有に適した固定レイアウトのファイルでダウンロードします。",
   "reportGenerate.noSettings": "レポート設定がありません。",
   "reportGenerate.requireSettings":
     "レポート生成前にレポート管理で少なくとも1つの設定を登録する必要があります。",

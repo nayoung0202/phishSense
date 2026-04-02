@@ -24,12 +24,16 @@ export function buildTemplateFileKey(
   );
 }
 
-export function buildReportFileKey(tenantId: string, instanceId: string) {
+export function buildReportFileKey(
+  tenantId: string,
+  instanceId: string,
+  extension: "docx" | "pdf" = "docx",
+) {
   return path.posix.join(
     buildTenantRoot(tenantId),
     "reports",
     "generated",
-    `${instanceId}.docx`,
+    `${instanceId}.${extension}`,
   );
 }
 

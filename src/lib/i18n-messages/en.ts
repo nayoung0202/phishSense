@@ -416,7 +416,7 @@ export const enMessages: TranslationMessages = {
   "trainingPageEdit.contentLabel": "Page content",
   "trainingPageEdit.contentPlaceholder": "Enter the content to display on the page.",
   "reportGenerate.title": "Project report preview",
-  "reportGenerate.description": "Select a report setting, upload captures, and generate the report.",
+  "reportGenerate.description": "Select a report setting and download format, upload captures, and generate the report.",
   "reportGenerate.loadSettingsFailed": "Unable to load the report settings list.",
   "reportGenerate.noUploadFileAlert": "There are no capture images to upload.",
   "reportGenerate.uploadSuccessTitle": "Capture upload complete",
@@ -434,6 +434,15 @@ export const enMessages: TranslationMessages = {
   "reportGenerate.projectScheduleLabel": "Schedule:",
   "reportGenerate.noProjectSelected": "No project is selected.",
   "reportGenerate.selectSettingLabel": "Select report setting",
+  "reportGenerate.downloadFormatLabel": "Report download format",
+  "reportGenerate.downloadFormatDescription":
+    "Choose the format to download as soon as the report is generated.",
+  "reportGenerate.downloadFormat.word": "Word (.docx)",
+  "reportGenerate.downloadFormat.word.description":
+    "Download the editable report document format.",
+  "reportGenerate.downloadFormat.pdf": "PDF",
+  "reportGenerate.downloadFormat.pdf.description":
+    "Download a fixed-layout file for sharing and distribution.",
   "reportGenerate.noSettings": "No report settings available.",
   "reportGenerate.requireSettings":
     "You must register at least one setting in Reports before generating a report.",

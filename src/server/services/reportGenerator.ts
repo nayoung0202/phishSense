@@ -5,6 +5,11 @@ import { randomUUID } from "node:crypto";
 import { format } from "date-fns";
 import type { Project, ReportTemplate } from "@shared/schema";
 import {
+  DEFAULT_REPORT_DOWNLOAD_FORMAT,
+  getReportFileExtension,
+  type ReportDownloadFormat,
+} from "@/lib/reportDownloadFormat";
+import {
   createReportInstanceForTenant,
   createReportTemplateForTenant,
   getActiveReportTemplateInTenant,
@@ -32,6 +37,7 @@ const DEFAULT_TEMPLATE_PATH =
   process.env.REPORT_DEFAULT_TEMPLATE_PATH ??
   path.join(process.cwd(), "attached_assets", "default_report_template.docx");
 const CONFIDENTIAL_LOGO_ENV = "REPORT_CONFIDENTIAL_LOGO_PATH";
+const REPORT_SOFFICE_BIN = process.env.REPORT_SOFFICE_BIN?.trim() || "soffice";
 const DEFAULT_CONFIDENTIAL_LOGO_PATH = path.join(
   process.cwd(),
   "attached_assets",
@@ -254,13 +260,17 @@ const buildReportData = (
   };
 };
 
-const runPythonRenderer = async (payload: object) => {
-  if (!(await fileExists(PYTHON_SCRIPT))) {
-    throw new Error("보고서 렌더러 스크립트를 찾을 수 없습니다.");
-  }
-
+const runProcess = async (
+  command: string,
+  args: string[],
+  options: {
+    stdinPayload?: string;
+    failureMessage: string;
+    missingBinaryMessage?: string;
+  },
+) => {
   return new Promise<void>((resolve, reject) => {
-    const child = spawn(resolveReportPythonBin(), [PYTHON_SCRIPT], {
+    const child = spawn(command, args, {
       stdio: ["pipe", "pipe", "pipe"],
     });
 
@@ -271,6 +281,11 @@ const runPythonRenderer = async (payload: object) => {
     });
 
     child.on("error", (error) => {
+      const errorWithCode = error as NodeJS.ErrnoException;
+      if (errorWithCode.code === "ENOENT" && options.missingBinaryMessage) {
+        reject(new Error(options.missingBinaryMessage));
+        return;
+      }
       reject(error);
     });
 
@@ -279,12 +294,48 @@ const runPythonRenderer = async (payload: object) => {
         resolve();
         return;
       }
-      reject(new Error(stderr.trim() || "보고서 생성에 실패했습니다."));
+      reject(new Error(stderr.trim() || options.failureMessage));
     });
 
-    child.stdin.write(JSON.stringify(payload));
+    if (options.stdinPayload) {
+      child.stdin.write(options.stdinPayload);
+    }
     child.stdin.end();
   });
+};
+
+const runPythonRenderer = async (payload: object) => {
+  if (!(await fileExists(PYTHON_SCRIPT))) {
+    throw new Error("보고서 렌더러 스크립트를 찾을 수 없습니다.");
+  }
+
+  return runProcess(resolveReportPythonBin(), [PYTHON_SCRIPT], {
+    stdinPayload: JSON.stringify(payload),
+    failureMessage: "보고서 생성에 실패했습니다.",
+  });
+};
+
+const convertWordReportToPdf = async (sourcePath: string, targetPath: string) => {
+  await runProcess(
+    REPORT_SOFFICE_BIN,
+    [
+      "--headless",
+      "--convert-to",
+      "pdf:writer_pdf_Export",
+      "--outdir",
+      path.dirname(targetPath),
+      sourcePath,
+    ],
+    {
+      failureMessage: "PDF 변환에 실패했습니다.",
+      missingBinaryMessage:
+        "PDF 변환 도구를 찾을 수 없습니다. LibreOffice(soffice) 설치 또는 REPORT_SOFFICE_BIN 설정을 확인하세요.",
+    },
+  );
+
+  if (!(await fileExists(targetPath))) {
+    throw new Error("PDF 변환 결과 파일을 찾을 수 없습니다.");
+  }
 };
 
 const ensureDefaultTemplate = async (
@@ -422,12 +473,18 @@ const resolveReportQuarter = (project: Project) => {
 export async function generateProjectReport(
   tenantId: string,
   projectId: string,
-  options?: { templateId?: string | null; reportSettingId?: string | null },
+  options?: {
+    templateId?: string | null;
+    reportSettingId?: string | null;
+    downloadFormat?: ReportDownloadFormat;
+  },
 ) {
   const project = await getProjectForTenant(tenantId, projectId);
   if (!project) {
     throw new Error("프로젝트 정보를 찾을 수 없습니다.");
   }
+
+  const downloadFormat = options?.downloadFormat ?? DEFAULT_REPORT_DOWNLOAD_FORMAT;
 
   const { companyName, approverName, approverTitle, logoPath, confidentialPath, reportSettingId } =
     await resolveReportSettingConfig(tenantId, options?.reportSettingId ?? null);
@@ -507,9 +564,17 @@ export async function generateProjectReport(
     errorMessage: null,
   });
 
-  const reportFileKey = buildReportFileKey(tenantId, reportInstance.id);
-  const outputPath = resolveStoragePath(reportFileKey);
-  await ensureDirectoryForFile(outputPath);
+  const reportFileKey = buildReportFileKey(
+    tenantId,
+    reportInstance.id,
+    getReportFileExtension(downloadFormat),
+  );
+  const wordOutputFileKey =
+    downloadFormat === "pdf"
+      ? buildReportFileKey(tenantId, reportInstance.id, "docx")
+      : reportFileKey;
+  const wordOutputPath = resolveStoragePath(wordOutputFileKey);
+  await ensureDirectoryForFile(wordOutputPath);
 
   const targetCount = Math.max(0, project.targetCount ?? 0);
   const openCount = Math.max(0, project.openCount ?? 0);
@@ -589,7 +654,7 @@ export async function generateProjectReport(
   try {
     await runPythonRenderer({
       template_path: templatePath,
-      output_path: outputPath,
+      output_path: wordOutputPath,
       data: {
         ...buildReportData(project, {
           companyName,
@@ -663,6 +728,12 @@ export async function generateProjectReport(
         },
       ],
     });
+
+    if (downloadFormat === "pdf") {
+      const pdfOutputPath = resolveStoragePath(reportFileKey);
+      await convertWordReportToPdf(wordOutputPath, pdfOutputPath);
+      await fs.unlink(wordOutputPath).catch(() => undefined);
+    }
 
     await updateReportInstanceForTenantScope(tenantId, reportInstance.id, {
       status: "completed",

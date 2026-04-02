@@ -87,11 +87,20 @@ describe("ReportGenerateDialog", () => {
     );
 
     await screen.findByText("reports.capture.trainingPage.label");
+    const settingLabel = screen.getByText("reportGenerate.selectSettingLabel");
+    const downloadFormatLabel = screen.getByText("reportGenerate.downloadFormatLabel");
+    const captureSectionTitle = screen.getByText("reportGenerate.captureSectionTitle");
+
+    expect(downloadFormatLabel).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /reportGenerate\.downloadFormat\.word/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /reportGenerate\.downloadFormat\.pdf/ })).toBeInTheDocument();
+    expect(settingLabel.compareDocumentPosition(downloadFormatLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(downloadFormatLabel.compareDocumentPosition(captureSectionTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     expect(screen.getByTestId("report-generate-dialog")).toHaveClass(
-      "max-h-[92vh]",
+      "max-h-[94vh]",
       "w-[96vw]",
-      "max-w-[64rem]",
+      "max-w-[72rem]",
     );
   });
 });

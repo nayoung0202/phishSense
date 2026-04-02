@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
+import path from "node:path";
 import { format } from "date-fns";
 import {
   getProjectForTenant,
@@ -23,6 +24,21 @@ const toAsciiFilename = (value: string) =>
     .replace(/[^\x20-\x7E]/g, "_")
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "");
+
+const getDownloadMetadata = (fileKey: string) => {
+  const extension = path.extname(fileKey).toLowerCase();
+  if (extension === ".pdf") {
+    return {
+      contentType: "application/pdf",
+      extension: "pdf",
+    };
+  }
+  return {
+    contentType:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    extension: "docx",
+  };
+};
 
 export async function GET(
   request: NextRequest,
@@ -53,18 +69,18 @@ export async function GET(
     const formatted = format(date, "yyyyMMdd");
     const rawCompany = companyName || "company";
     const rawProject = projectName || "project";
-    const rawFilename = `${rawCompany}_${rawProject}_보고서_${formatted}.docx`;
+    const downloadMetadata = getDownloadMetadata(instance.fileKey);
+    const rawFilename = `${rawCompany}_${rawProject}_보고서_${formatted}.${downloadMetadata.extension}`;
     const asciiFilename =
-      toAsciiFilename(`${rawCompany}_${rawProject}_report_${formatted}.docx`) ||
-      `report-${id}.docx`;
+      toAsciiFilename(`${rawCompany}_${rawProject}_report_${formatted}.${downloadMetadata.extension}`) ||
+      `report-${id}.${downloadMetadata.extension}`;
     const encodedFilename = encodeURIComponent(rawFilename);
     const contentDisposition =
       `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`;
 
     return new NextResponse(buffer, {
       headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Type": downloadMetadata.contentType,
         "Content-Disposition": contentDisposition,
       },
     });

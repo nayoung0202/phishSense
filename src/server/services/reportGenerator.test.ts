@@ -72,6 +72,7 @@ const childProcessMock = vi.hoisted(() => {
 const fsMock = vi.hoisted(() => ({
   promises: {
     copyFile: vi.fn(),
+    unlink: vi.fn(),
   },
 }));
 
@@ -123,6 +124,7 @@ vi.mock("node:fs", async (importOriginal) => {
   const promises = {
     ...actual.promises,
     copyFile: fsMock.promises.copyFile,
+    unlink: fsMock.promises.unlink,
   };
   return {
     ...actual,
@@ -153,6 +155,8 @@ describe("reportGenerator", () => {
     childProcessMock.reset();
     childProcessMock.spawn.mockClear();
     fsMock.promises.copyFile.mockReset();
+    fsMock.promises.unlink.mockReset();
+    fsMock.promises.unlink.mockResolvedValue(undefined);
 
     tenantStorageMock.getProjectForTenant.mockReset();
     tenantStorageMock.getProjectsForTenant.mockReset();
@@ -216,13 +220,15 @@ describe("reportGenerator", () => {
     reportStorageMock.buildTemplateFileKey.mockReturnValue(
       "tenants/tenant-a/reports/templates/template-default/v1/template.docx",
     );
-    reportStorageMock.buildReportFileKey.mockReturnValue(
-      "tenants/tenant-a/reports/generated/report-instance-1.docx",
+    reportStorageMock.buildReportFileKey.mockImplementation(
+      (_tenantId: string, instanceId: string, extension: "docx" | "pdf" = "docx") =>
+        `tenants/tenant-a/reports/generated/${instanceId}.${extension}`,
     );
     reportStorageMock.ensureDirectoryForFile.mockResolvedValue(undefined);
     reportStorageMock.resolveStoragePath.mockImplementation((fileKey: string) => {
       if (fileKey.includes("logo.png")) return "/tmp/logo.png";
       if (fileKey.includes("report-instance-1.docx")) return "/tmp/report-instance-1.docx";
+      if (fileKey.includes("report-instance-1.pdf")) return "/tmp/report-instance-1.pdf";
       if (fileKey.includes("capture")) return `/tmp/${fileKey.replaceAll("/", "_")}.png`;
       if (fileKey.includes("template-old")) return "/tmp/template-old.docx";
       return `/tmp/${fileKey.replaceAll("/", "_")}`;
@@ -436,5 +442,42 @@ describe("reportGenerator", () => {
         delta_value: "-25.0%p",
       },
     ]);
+  });
+
+  it("pdf 형식을 선택하면 docx 생성 후 pdf 파일로 변환해 저장한다", async () => {
+    tenantStorageMock.getProjectForTenant.mockResolvedValue(
+      buildProjectFixture({
+        id: "project-1",
+        reportCaptureInboxFileKey: "tenants/tenant-a/capture/inbox",
+        reportCaptureEmailFileKey: "tenants/tenant-a/capture/email",
+        reportCaptureMaliciousFileKey: "tenants/tenant-a/capture/malicious",
+        reportCaptureTrainingFileKey: "tenants/tenant-a/capture/training",
+      }),
+    );
+    reportStorageMock.fileExists.mockResolvedValue(true);
+
+    await generateProjectReport(TENANT_A_ID, "project-1", {
+      reportSettingId: "setting-1",
+      downloadFormat: "pdf",
+    });
+
+    expect(childProcessMock.spawn).toHaveBeenCalledTimes(2);
+    expect(childProcessMock.spawn.mock.calls[1]?.[0]).toBe("soffice");
+    expect(childProcessMock.spawn.mock.calls[1]?.[1]).toEqual([
+      "--headless",
+      "--convert-to",
+      "pdf:writer_pdf_Export",
+      "--outdir",
+      "/tmp",
+      "/tmp/report-instance-1.docx",
+    ]);
+    expect(tenantStorageMock.updateReportInstanceForTenantScope).toHaveBeenCalledWith(
+      TENANT_A_ID,
+      "report-instance-1",
+      expect.objectContaining({
+        status: "completed",
+        fileKey: "tenants/tenant-a/reports/generated/report-instance-1.pdf",
+      }),
+    );
   });
 });

@@ -6,6 +6,7 @@
 
 - Node.js 20+
 - Python 3.10+ (`venv`/`ensurepip` 포함)
+- PDF 보고서가 필요하면 LibreOffice CLI (`soffice`) 또는 동등한 실행 경로
 - PostgreSQL 접근 정보 또는 로컬 Docker 환경
 - `.env.example` 기반 `.env`
 - Debian/Ubuntu 계열에서 시스템 Python을 쓰면 `python3-venv` 또는 `python3.x-venv`가 추가로 필요할 수 있습니다.
@@ -65,6 +66,7 @@ npm run worker:send
 - `TENANT_DOMAIN_BASE`
 - `DATABASE_URL`
 - `REPORT_PYTHON_BIN` (선택, 준비된 Python/venv 경로를 고정할 때)
+- `REPORT_SOFFICE_BIN` (선택, PDF 변환용 `soffice` 실행 경로를 고정할 때)
 
 ### 인증
 
@@ -109,6 +111,7 @@ npm run worker:send
 - 기본값은 프로젝트 루트의 `.venv-report`를 만들고 여기에 리포트 Python 의존성을 설치합니다.
 - 자동 설치를 생략하려면 `REPORT_SKIP_PYTHON_DEPS_INSTALL=true npm install`을 사용합니다.
 - 시스템 Python에 venv 지원이 없으면 패키지 설치 후 다시 실행하거나 `REPORT_PYTHON_BIN`으로 준비된 Python 경로를 지정합니다.
+- PDF 보고서 생성을 쓰려면 실행 환경에 `soffice`가 있어야 하며, 기본 경로가 다르면 `REPORT_SOFFICE_BIN`으로 지정합니다.
 
 ## 배포 체크리스트
 
