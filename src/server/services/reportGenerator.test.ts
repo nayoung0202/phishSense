@@ -37,12 +37,14 @@ const createEmitter = () => {
 
 const childProcessMock = vi.hoisted(() => {
   let lastPayload = "";
+  const queuedErrors = new Map<string, Array<NodeJS.ErrnoException>>();
 
   return {
-    spawn: vi.fn(() => {
+    spawn: vi.fn((command: string) => {
       lastPayload = "";
       const child = createEmitter();
       const stderr = createEmitter();
+      const nextError = queuedErrors.get(command)?.shift();
 
       return {
         ...child,
@@ -56,6 +58,10 @@ const childProcessMock = vi.hoisted(() => {
           }),
           end: vi.fn(() => {
             queueMicrotask(() => {
+              if (nextError) {
+                child.emit("error", nextError);
+                return;
+              }
               child.emit("close", 0);
             });
           }),
@@ -63,8 +69,14 @@ const childProcessMock = vi.hoisted(() => {
       };
     }),
     getLastPayload: () => lastPayload,
+    queueSpawnError: (command: string, error: NodeJS.ErrnoException) => {
+      const current = queuedErrors.get(command) ?? [];
+      current.push(error);
+      queuedErrors.set(command, current);
+    },
     reset: () => {
       lastPayload = "";
+      queuedErrors.clear();
     },
   };
 });
@@ -478,6 +490,37 @@ describe("reportGenerator", () => {
         status: "completed",
         fileKey: "tenants/tenant-a/reports/generated/report-instance-1.pdf",
       }),
+    );
+  });
+
+  it("PATH에 soffice가 없어도 macOS 기본 LibreOffice 경로로 pdf 변환을 재시도한다", async () => {
+    tenantStorageMock.getProjectForTenant.mockResolvedValue(
+      buildProjectFixture({
+        id: "project-1",
+        reportCaptureInboxFileKey: "tenants/tenant-a/capture/inbox",
+        reportCaptureEmailFileKey: "tenants/tenant-a/capture/email",
+        reportCaptureMaliciousFileKey: "tenants/tenant-a/capture/malicious",
+        reportCaptureTrainingFileKey: "tenants/tenant-a/capture/training",
+      }),
+    );
+    reportStorageMock.fileExists.mockImplementation(async (filePath: string) => {
+      if (filePath === "/Applications/LibreOffice.app/Contents/MacOS/soffice") return true;
+      return true;
+    });
+    childProcessMock.queueSpawnError(
+      "soffice",
+      Object.assign(new Error("spawn soffice ENOENT"), { code: "ENOENT" }),
+    );
+
+    await generateProjectReport(TENANT_A_ID, "project-1", {
+      reportSettingId: "setting-1",
+      downloadFormat: "pdf",
+    });
+
+    expect(childProcessMock.spawn).toHaveBeenCalledTimes(3);
+    expect(childProcessMock.spawn.mock.calls[1]?.[0]).toBe("soffice");
+    expect(childProcessMock.spawn.mock.calls[2]?.[0]).toBe(
+      "/Applications/LibreOffice.app/Contents/MacOS/soffice",
     );
   });
 });

@@ -111,7 +111,8 @@ npm run worker:send
 - 기본값은 프로젝트 루트의 `.venv-report`를 만들고 여기에 리포트 Python 의존성을 설치합니다.
 - 자동 설치를 생략하려면 `REPORT_SKIP_PYTHON_DEPS_INSTALL=true npm install`을 사용합니다.
 - 시스템 Python에 venv 지원이 없으면 패키지 설치 후 다시 실행하거나 `REPORT_PYTHON_BIN`으로 준비된 Python 경로를 지정합니다.
-- PDF 보고서 생성을 쓰려면 실행 환경에 `soffice`가 있어야 하며, 기본 경로가 다르면 `REPORT_SOFFICE_BIN`으로 지정합니다.
+- PDF 보고서 생성을 쓰려면 실행 환경에 `soffice`가 있어야 하며, macOS는 `/Applications/LibreOffice.app/Contents/MacOS/soffice`를 자동 탐색합니다.
+- 기본 경로가 다르거나 서비스 PATH에 CLI가 잡히지 않으면 `REPORT_SOFFICE_BIN`으로 절대 경로를 지정합니다.
 
 ## 배포 체크리스트
 

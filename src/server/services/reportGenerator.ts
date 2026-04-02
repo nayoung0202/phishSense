@@ -37,7 +37,15 @@ const DEFAULT_TEMPLATE_PATH =
   process.env.REPORT_DEFAULT_TEMPLATE_PATH ??
   path.join(process.cwd(), "attached_assets", "default_report_template.docx");
 const CONFIDENTIAL_LOGO_ENV = "REPORT_CONFIDENTIAL_LOGO_PATH";
-const REPORT_SOFFICE_BIN = process.env.REPORT_SOFFICE_BIN?.trim() || "soffice";
+const REPORT_SOFFICE_BIN = process.env.REPORT_SOFFICE_BIN?.trim() || null;
+const DEFAULT_REPORT_SOFFICE_CANDIDATES = [
+  "soffice",
+  "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+  "/Applications/OpenOffice.app/Contents/MacOS/soffice",
+  "/opt/homebrew/bin/soffice",
+  "/usr/local/bin/soffice",
+  "/usr/bin/soffice",
+] as const;
 const DEFAULT_CONFIDENTIAL_LOGO_PATH = path.join(
   process.cwd(),
   "attached_assets",
@@ -283,7 +291,9 @@ const runProcess = async (
     child.on("error", (error) => {
       const errorWithCode = error as NodeJS.ErrnoException;
       if (errorWithCode.code === "ENOENT" && options.missingBinaryMessage) {
-        reject(new Error(options.missingBinaryMessage));
+        const wrappedError = new Error(options.missingBinaryMessage) as NodeJS.ErrnoException;
+        wrappedError.code = "ENOENT";
+        reject(wrappedError);
         return;
       }
       reject(error);
@@ -315,23 +325,62 @@ const runPythonRenderer = async (payload: object) => {
   });
 };
 
+const resolveReportSofficeCandidates = async () => {
+  if (REPORT_SOFFICE_BIN) {
+    return [REPORT_SOFFICE_BIN];
+  }
+
+  const discovered: string[] = [];
+  for (const candidate of DEFAULT_REPORT_SOFFICE_CANDIDATES) {
+    if (!candidate.includes(path.sep)) {
+      discovered.push(candidate);
+      continue;
+    }
+    if (await fileExists(candidate)) {
+      discovered.push(candidate);
+    }
+  }
+
+  return Array.from(new Set(discovered));
+};
+
 const convertWordReportToPdf = async (sourcePath: string, targetPath: string) => {
-  await runProcess(
-    REPORT_SOFFICE_BIN,
-    [
-      "--headless",
-      "--convert-to",
-      "pdf:writer_pdf_Export",
-      "--outdir",
-      path.dirname(targetPath),
-      sourcePath,
-    ],
-    {
-      failureMessage: "PDF 변환에 실패했습니다.",
-      missingBinaryMessage:
-        "PDF 변환 도구를 찾을 수 없습니다. LibreOffice(soffice) 설치 또는 REPORT_SOFFICE_BIN 설정을 확인하세요.",
-    },
-  );
+  const candidates = await resolveReportSofficeCandidates();
+  let lastMissingBinaryError: Error | null = null;
+
+  for (const candidate of candidates) {
+    try {
+      await runProcess(
+        candidate,
+        [
+          "--headless",
+          "--convert-to",
+          "pdf:writer_pdf_Export",
+          "--outdir",
+          path.dirname(targetPath),
+          sourcePath,
+        ],
+        {
+          failureMessage: "PDF 변환에 실패했습니다.",
+          missingBinaryMessage:
+            "PDF 변환 도구를 찾을 수 없습니다. LibreOffice(soffice) 설치 또는 REPORT_SOFFICE_BIN 설정을 확인하세요.",
+        },
+      );
+      lastMissingBinaryError = null;
+      break;
+    } catch (error) {
+      const errorWithCode = error as NodeJS.ErrnoException;
+      if (errorWithCode.code === "ENOENT") {
+        lastMissingBinaryError = errorWithCode;
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (lastMissingBinaryError) {
+    throw lastMissingBinaryError;
+  }
 
   if (!(await fileExists(targetPath))) {
     throw new Error("PDF 변환 결과 파일을 찾을 수 없습니다.");
